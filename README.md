@@ -1,4 +1,4 @@
-# lilbug
+# lilbug for the Liebert Challenger 2 HVAC controller
 Motorola's lilbug debugger for the MC6801/6803 processor. Assembled with [asl](https://github.com/linuxha/asl).
 
 ## Description
@@ -7,7 +7,7 @@ I didn't write the lilbug monitor, that would be someone at Motorola and the bes
 What I have done so far is to reformat lilbug, assemble it and burned it to an EPROM (EEPROM -28C64). I hated the indentation so I reformatted it to make it more readable. I understand why it is that way. I started in this business in the late 70's but the old formatting was crude and offensive to my programmers sensibilities. I've also added an include (lilbug.inc) which contains some asl macros and the equates that were in the original lilbug.asm. I am able to use these files to assemble the lilbug monitor to a binary (and s19 file).
 
 ## Background
-I have a unique makerspace ([Computer Deconstrution Lab](https://compdecon.github.io)) that shares it's location with a [Vintage Computer Museum](https://vcfed.org) (VCFed, on the National Historic Site of Camp Evans at [InfoAge](https://www.infoage.org/)). A non historic component, a Liebert Challenger 2 HVAC unit needed to be removed from the makerspace. This HVAC unit had been replaced a long time ago but this hulk of metal was taking up space which could be made better use with the HVAC's removal. After removing the unit and recycling most of it I decided to same the original controller board. The board contained a Motorola MC6801 processor and I happen to like the Motorola family of processors. I began reverse engineering the board and discovered that it contains 1K of static RAM, internal 128 Bytes of RAM, 3 external devices to write to (0x4000, 0x6000, & 0x8000) and 1 external device to read from (0xA000). There is also P1 of the MC6801. I'm still decoding that.
+I have a unique makerspace ([Computer Deconstrution Lab](https://compdecon.github.io)) that shares it's location with a [Vintage Computer Museum](https://vcfed.org) (VCFed, on the National Historic Site of Camp Evans at [InfoAge](https://www.infoage.org/)). A non historic component, a Liebert Challenger 2 HVAC unit needed to be removed from the makerspace. This HVAC unit had been replaced a long time ago but this hulk of metal was taking up space which could be made better use with the HVAC's removal. After removing the unit and recycling most of it I decided to do the same with the original controller board. The board contained a Motorola MC6801 processor and I happen to like the Motorola family of processors. I began reverse engineering the board and discovered that it contains 1K of static RAM, internal 128 Bytes of RAM, 3 external devices to write to (0x4000, 0x6000, & 0x8000) and 1 external device to read from (0xA000). There is also P1 of the MC6801. I'm still decoding that.
 
 With a little hacking I've added 8K of RAM at 0xC000 (originally P8 ROM) and the lilbug code at 0xE000 (0xf800 - P9 ROM). I'm still trying to figure out how to write to the various LEDs and 7 Segment display. But I think I should be able to write some ASM code to handle that. Using lilbug to hack the rest of the board. The various TTL chips give hints (serial to 8 bits, 2to4 decode, 4to10 BCD decode, etc.).
 
@@ -15,14 +15,68 @@ I must say it's been fun playing with the board and it should make an interestin
 
 ![alt text](https://github.com/linuxha/lilbug/blob/main/liebert-controller-640x319.png?raw=true "Liebert controller board")
 
-# Notes
+Most of those connectors probably won't be used as they went to high powered controls (208 3-phase) and low powered sensors. I don't have any schematics
+
+# f9dasm
+
+After using my TL688 II+ and [Minipro](https://gitlab.com/DavidGriffith/minipro) - EPROM Burner to read the 2 ROM (Intel 2764P) I used the [f9dasm](https://github.com/linuxha/f9dasm) disassembler on the Liebert ROMs. First I cat'd liebert-P8.bin and liebert-P9.bin into liebert-P8nP9.bin. The ran the command line:
+```
+```
+I used this info file:
+```
+****************************************
+FILE MC6803-P8nP9.bin C000
+OPTION begin C000
+OPTION noflex
+OPTION 6801
+OPTION asc
+****************************************
+INCLUDE equ.info
+INCLUDE data.info
+INCLUDE irq.info
+```
+I ran f9dasm several times filling in the blanks. I created labels for the strings, MC6801 equates, interrupt vectors, data sections, etc. It's still a work in progress. Here's my f9dasm command line:
+
+```
+f9dasm -info liebert.info -out liebert.asm
+```
+
+# Reverse engineering
+
+First note that I really don't need to disassemble the Liebert ROMs. It just makes figuring out the I/O somewhat easier. There are a lot of TTL support chips between the processor and things like the LEDs and I don't have a schematic. Also the Lilbug monitor makes it easy to load code into RAM and execute it. So I can take what I've learned and poke around.
+
+Every usefull computer basically has I/O, RAM and ROM. Some things are obvious, usually the processor, the RAM and the ROM. Older controllers such as the Challenger are generally easier to reverse engineer. You start with the processor. You'll know certain things about the processor such as pinout, 8 bits of data, 16 bits addressing (64K) and where it starts at reset. After the processor details you look at the board and the chips. This board didn't have custom chips such as PALs or FPGA just lots of CMOS and TTL chips. You look up chips data sheets and you know the pinouts and the chips purpose. One important thing is you need to have some chip decode the I/O. That's the job of the 74LS138 (3 to 8 decode). If you trace the pinouts you find that Address lines A13 thru A15 are attached to the 74LS138 so we can see that each select represents an address range of 8K. This matches with the ROMS which are each 8K. We know that there must be one ROM at E000 so a guess that P8 lives there. I can combine the two ROMS and begin disassembly. The first few passes will give you lots of junk but you can start by looking at the interrupt vectors and seeing where they trace to. Also look for any ASCII strings and odd FCC or FCB statements in the middle of code.
+
+# Hardware Notes
+
+- MC6801 in Mode 2 (External I/O, internal 128 bytes of RAM)
+  - was 4.0 MHz xtal (very odd baud rate of 78xx baud)
+  - switched to 4.9152MHz (gives 300, 1200 and 9600 baud)
+- I/O at:
+  - 0000 - 128 Bytes RAM
+  - 2000 - 1024 Bytes static RAM
+  - 4000 - I/O - write (not read)
+  - 6000 - 374, 8 Motor SCRs 
+  - 8000 - I/O - write (not read)
+  - A000 - I/O - read (not written to)
+  - C000 - 8K ROM <- Hack in 8K RAM
+  - E000 - 8K ROM
+- 8x LED (7442 - 4 to 10 BCD to Decimal decoder)
+- 2x 7-segment displays (74164 - 8-Bit Parallel-Out A/B Serial in Shift Registers)
+- 11x LEDs (7 red, 4 Green - front panel - 74164)
+- DIPs (???)
+- Serial RS485 (hacked for 5v TTL)
+
+
+
+# Software Notes
 
 - s0.sh - creates a new s0 record with the file name in it  (not used here yet)
 - s9.sh - creates a new s9 record (not used here yet)
 
 # Links
 
-- [f9dasm](https://github.com/linuxha/f9dasm) - disassemble
+- [f9dasm](https://github.com/linuxha/f9dasm) - disassembler
 - [asl](https://github.com/linuxha/asl) - Macro assembler
 - [srec_examples](https://manpages.ubuntu.com/manpages/xenial/man1/srec_examples.1.html)
 - [minipro](https://gitlab.com/DavidGriffith/minipro) - EPROM Burner
