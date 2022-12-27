@@ -13,6 +13,8 @@ With a little hacking I've added 8K of RAM at 0xC000 (originally P8 ROM) and the
 
 I must say it's been fun playing with the board and it should make an interesting display piece in the makerspace.
 
+![alt text](https://github.com/linuxha/lilbug/liebert-controller-640x319.png.png "Liebert controller board")
+
 # Commands
 ```
 lilbug
