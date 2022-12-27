@@ -1,0 +1,2766 @@
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 1 - 12/12/2022 15:11:20
+
+
+       1/       0 :                     ; ===========================================================================
+       2/       0 :                     ; This is the disassembly of the Peter Stark's Humbug+ monitor for the Tandy
+       3/       0 :                     ; MC-10. While this was disassembled with the 6803 CPU option it does appear
+       4/       0 :                     ; that this is basically the 6800 version of Humbug.
+       5/       0 :                     ; ===========================================================================
+       6/       0 :                     ;
+       7/       0 :                     ;	Disassembled by:
+       8/       0 :                     ;		DASMx object code disassembler
+       9/       0 :                     ;		(c) Copyright 1996-2003   Conquest Consultants
+      10/       0 :                     ;		Version 1.40 (Oct 18 2003)
+      11/       0 :                     ;
+      12/       0 :                     ;	File:		hb7500c.bin
+      13/       0 :                     ;
+      14/       0 :                     ;	Size:		2677 bytes
+      15/       0 :                     ;	Checksum:	5886
+      16/       0 :                     ;	CRC-32:		D130ACFC
+      17/       0 :                     ;
+      18/       0 :                     ;	Date:		Sun Feb 17 00:12:51 2019
+      19/       0 :                     ;
+      20/       0 :                     ;	CPU:		Motorola 6803 (6801/6803 family)
+      21/       0 : NONE                	MACEXP  off
+      22/       0 :                             CPU     6301            ; That's what asl has
+      23/       0 :                     ;
+      24/       0 :                     ;
+      25/       0 :                     ; ===========================================================================
+      26/       0 :                             ;;
+      27/       0 :                             include "motorola.inc"          ; Macros for things like fcc,db, etc.
+(1)    1/       0 :                     list            macro
+(1)    2/       0 :                                       listing on
+(1)    3/       0 :                                     endm
+(1)    4/       0 :                     
+(1)    5/       0 :                     nolist          macro
+(1)    6/       0 :                                       listing off
+(1)    7/       0 :                                     endm
+(1)    8/       0 :                     
+(1)    9/       0 :                     db              macro   op
+(1)   10/       0 :                                       ;byt   (op)
+(1)   11/       0 :                                       byt   ALLARGS
+(1)   12/       0 :                                     endm
+(1)   13/       0 :                     
+(1)   14/       0 :                     fcb             macro   args
+(1)   15/       0 :                                       byt   ALLARGS
+(1)   16/       0 :                                     endm
+(1)   17/       0 :                     
+(1)   18/       0 :                     ; Modified to allow
+(1)   19/       0 :                     ; label fcc "string"
+(1)   20/       0 :                     ; or
+(1)   21/       0 :                     ; label fcc "string", $04, ...
+(1)   22/       0 :                     fcc             macro   args
+(1)   23/       0 :                                       byt   ALLARGS
+(1)   24/       0 :                                     endm
+(1)   25/       0 :                     
+(1)   26/       0 :                     dw              macro   op
+(1)   27/       0 :                                       adr   (op)
+(1)   28/       0 :                                     endm
+(1)   29/       0 :                     
+(1)   30/       0 :                     fdb             macro   op
+(1)   31/       0 :                                       adr   (op)
+(1)   32/       0 :                                     endm
+(1)   33/       0 :                     
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(motorola.inc) - page 2 - 12/12/2022 15:11:20
+
+
+(1)   34/       0 :                     fcw             macro   op
+(1)   35/       0 :                                       adr   (op)
+(1)   36/       0 :                                     endm
+(1)   37/       0 :                     
+(1)   38/       0 :                     ds              macro   op
+(1)   39/       0 :                                       dfs   (op)
+(1)   40/       0 :                                     endm
+(1)   41/       0 :                     
+(1)   42/       0 :                     rmb             macro	op
+(1)   43/       0 :                                       rept  op
+(1)   44/       0 :                                         db  0
+(1)   45/       0 :                                       endm
+(1)   46/       0 :                                     endm
+(1)   47/       0 :                     
+(1)   48/       0 :                     dd              macro   op
+(1)   49/       0 :                                       adr   (op)>>16,(op)&$ffff
+(1)   50/       0 :                                     endm
+(1)   51/       0 :                     
+(1)   52/       0 :                     fcd             macro   op
+(1)   53/       0 :                                       adr   (op)>>16,(op)&$ffff
+(1)   54/       0 :                                     endm
+(1)   55/       0 :                     
+(1)   56/       0 :                     page            macro
+(1)   57/       0 :                                       newpage
+(1)   58/       0 :                                     endm
+(1)   59/       0 :                     
+(1)   60/       0 :                     opt             macro
+(1)   61/       0 :                                     endm
+(1)   62/       0 :                     
+(1)   63/       0 :                     noopt           macro
+(1)   64/       0 :                                     endm
+(1)   65/       0 :                     
+(1)   66/       0 :                     
+      28/       0 :                             include "humbug.inc"            ; This may need a lot of clean up
+(1)    1/       0 :                     ;  ****************************************************************
+(1)    2/       0 :                     ;  * Radio Shack MC-10
+(1)    3/       0 :                     ;  * MICROCOLOR BASIC 1.0
+(1)    4/       0 :                     ;  *
+(1)    5/       0 :                     ;  *
+(1)    6/       0 :                     ;
+(1)    7/       0 :                     ;  ** Memory map at the end
+(1)    8/       0 :                     ;
+(1)    9/       0 :                     ;  **
+(1)   10/       0 :                     ;  **  Some equates
+(1)   11/       0 :                     ;  **
+(1)   12/       0 : =$80                LBUFMX    equ       128                 ; maximum number of chars in line input buffer
+(1)   13/       0 : =$3A                STKBUF    equ       58                  ; minimum cushion size for the stack
+(1)   14/       0 : =$3                 NMSTRS    equ       3                   ; maximum number of entries on the string stack
+(1)   15/       0 :                     	
+(1)   16/       0 :                     ;;; =[ EQU ]====================================================================
+(1)   17/       0 : =$0                 NUL	  equ   $00
+(1)   18/       0 : =$1                 SOH       equ   $01
+(1)   19/       0 : =$4                 EOT       equ   $04
+(1)   20/       0 : =$8                 BS        equ	$08                     ; backspace
+(1)   21/       0 : =$8                 CTRLH     equ   $08
+(1)   22/       0 : =$A                 CR        equ   $0A                     ; carriage return (ENTER)
+(1)   23/       0 : =$D                 LF        equ   $0D
+(1)   24/       0 : =$D                 NL        equ   $0D
+(1)   25/       0 : =$11                CTRLQ	  equ   $11
+(1)   26/       0 : =$13                CTRLS     equ   $13                     ; PAUSE control code (Shift-@)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 3 - 12/12/2022 15:11:20
+
+
+(1)   27/       0 : =$13                PAUSE     equ   $13                     ; PAUSE control code (Shift-@)
+(1)   28/       0 : =$20                SPACE     equ   $20                     ; space
+(1)   29/       0 :                     
+(1)   30/       0 : =$3E                PROMPT    equ   $3E                     ; '>'
+(1)   31/       0 : =$55                MARK	  equ	$55                     ; 'U'
+(1)   32/       0 : =$3C                SYNC	  equ   $3C                     ; '<'
+(1)   33/       0 :                     
+(1)   34/       0 : =$3F                SWIINST   equ   $3F                     ; SWI Instruction $3F (used by Break Points)
+(1)   35/       0 : =$7E                JMPINST   equ   $7E                     ; JMP Instruction $7E
+(1)   36/       0 :                     
+(1)   37/       0 : =$4210              SWIADDR   equ   $4210           	; Part of the SWI Vector
+(1)   38/       0 :                     ;;; =[ Macro ]==================================================================
+(1)   39/       0 :                     ;
+(1)   40/       0 :                     ;
+(1)   41/       0 :                     ;  **
+(1)   42/       0 :                     ;  **  Error Numbers
+(1)   43/       0 :                     ;  **
+(1)   44/       0 : =$0                 NF_ERR    equ       0                   ; NEXT without FOR
+(1)   45/       0 : =$2                 SN_ERR    equ       2                   ; Syntax error
+(1)   46/       0 : =$4                 RG_ERR    equ       4                   ; RETURN without GOSUB
+(1)   47/       0 : =$6                 OD_ERR    equ       6                   ; Out of DATA
+(1)   48/       0 : =$8                 FC_ERR    equ       8                   ; Illegal Function Call
+(1)   49/       0 : =$A                 OV_ERR    equ       10                  ; Overflow
+(1)   50/       0 : =$C                 OM_ERR    equ       12                  ; Out of Memory
+(1)   51/       0 : =$E                 UL_ERR    equ       14                  ; Undefined Line number
+(1)   52/       0 : =$10                BS_ERR    equ       16                  ; Bad Subscript
+(1)   53/       0 : =$12                DD_ERR    equ       18                  ; Doubly Dimensioned array
+(1)   54/       0 : =$14                D0_ERR    equ       20                  ; Division by Zero
+(1)   55/       0 : =$16                ID_ERR    equ       22                  ; Illegal in Direct mode
+(1)   56/       0 : =$18                TM_ERR    equ       24                  ; Type Mismatch
+(1)   57/       0 : =$1A                OS_ERR    equ       26                  ; Out of String space
+(1)   58/       0 : =$1C                LS_ERR    equ       28                  ; Length of String (too long)
+(1)   59/       0 : =$1E                ST_ERR    equ       30                  ; String formula Too complex
+(1)   60/       0 : =$20                CN_ERR    equ       32                  ; Can't continue
+(1)   61/       0 : =$22                IO_ERR    equ       34                  ; Input/Output error
+(1)   62/       0 : =$24                FM_ERR    equ       36                  ; File Mode error
+(1)   63/       0 :                     ;
+(1)   64/       0 :                     ;
+(1)   65/       0 :                     ;  ** 
+(1)   66/       0 :                     ;  ** Opcodes used for skipping over instructions
+(1)   67/       0 :                     ;  ** 
+(1)   68/       0 : =$21                SKP1      equ       $21                 ; Skip single byte instruction (BRN _)
+(1)   69/       0 : =$8C                SKP2      equ       $8C                 ; Skip two-byte instruction    (CPX #__)
+(1)   70/       0 : =$86                SKP1LDA   equ       $86                 ; Skip single byte instruction (LDA #_)
+(1)   71/       0 : =$C6                SKP1LDB   equ       $C6                 ; Skip single byte instruction (LDB #_)
+(1)   72/       0 :                     ;
+(1)   73/       0 :                     ;
+(1)   74/       0 :                     ;
+(1)   75/       0 :                     ;  ****************************************************************
+(1)   76/       0 :                     ;  **   MEMORY MAP
+(1)   77/       0 :                     ;  ****************************************************************
+(1)   78/       0 :                     ;            org       $0000
+(1)   79/       0 :                     ;
+(1)   80/       0 :                     ;  *---------------------------------------------------------------
+(1)   81/       0 :                     ;  *  6803 Internals
+(1)   82/       0 :                     ;  *
+(1)   83/       0 : =$0                 P1DDR     equ	$0000	;       1                   ; Port 1 Data Direction Register
+(1)   84/       0 : =$1                 P2DDR     equ	$0001	;       1                   ; Port 2 DDR (5 bits)
+(1)   85/       0 : =$2                 P1DATA    equ	$0002	;       1                   ; Port 1 Data Register
+(1)   86/       0 : =$3                 P2DATA    equ	$0003	;       1                   ; Port 2 Data (5 bits)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 4 - 12/12/2022 15:11:20
+
+
+(1)   87/       0 :                             ;; 0004-0008 not availabe, 0006 is used by Humbug ???
+(1)   88/       0 : =$8                 TCSR      equ	$0008	;       1                   ; Timer Status and Control Register
+(1)   89/       0 : =$9                 TIMER     equ	$0009	;       2                   ; Free running counter
+(1)   90/       0 : =$B                 TOCR      equ	$000B	;       2                   ; Timer Output Compare Register
+(1)   91/       0 : =$D                 TICR      equ	$000D	;       2                   ; Timer Input Capture Register
+(1)   92/       0 : =$10                SERMOD    equ	$0010	;       1                   ; Serial port Rate and Mode Control Register
+(1)   93/       0 : =$11                SERCSR    equ	$0011	;       1                   ; Serial port Control and Status Registers
+(1)   94/       0 : =$12                SERIN     equ	$0012	;       1                   ; Serial port Receiver Data Register
+(1)   95/       0 : =$13                SEROUT    equ	$0013	;       1                   ; Serial port Transmit Data Register
+(1)   96/       0 : =$14                RAMCR     equ	$0014	;       1                   ; RAM Control Register
+(1)   97/       0 :                     ;
+(1)   98/       0 :                     ;  *---------------------------------------------------------------
+(1)   99/       0 :                     ;  *  The address range of $0020 to $007F is not mapped
+(1)  100/       0 :                     ;  *  to anything by the stock hardware.
+(1)  101/       0 :                     ;  *
+(1)  102/       0 :                     ;0020 ;            rmb       96                  ; not available
+(1)  103/       0 :                     ;
+(1)  104/       0 :                     ;  *---------------------------------------------------------------
+(1)  105/       0 :                     ;  *  6803 On-Board RAM
+(1)  106/       0 :                     ;  *
+(1)  107/       0 : =$80                CHARAC    equ	$0080	;       1                   ; termination character 1
+(1)  108/       0 : =$81                ENDCHR    equ	$0081	;       1                   ; termination character 2
+(1)  109/       0 : =$82                TMPLOC    equ	$0082	;       1                   ; scratch variable
+(1)  110/       0 : =$83                DIMFLG    equ	$0083	;       1                   ; dimensioning flag (non-zero while in a DIM statement)
+(1)  111/       0 : =$84                VALTYP    equ	$0084	;       1                   ; value type ($00 = numeric, $FF = string)
+(1)  112/       0 : =$85                TMPFLG    equ	$0085	;       1                   ; temporary flag variable (used during Crunch and String Allocation)
+(1)  113/       0 : =$86                ARYMOD    equ	$0086	;       1                   ; array mode flag to force ($01) or disable ($80) array lookups
+(1)  114/       0 : =$87                INPFLG    equ	$0087	;       1                   ; flag to differentiate INPUT from READ
+(1)  115/       0 : =$88                RELFLG    equ	$0088	;       1                   ; relational operator flags
+(1)  116/       0 : =$89                TMPTR1    equ	$0089	;       2                   ; temporary pointer 1
+(1)  117/       0 : =$8B                TMPTR2    equ	$008B	;       2                   ; temporary pointer 2
+(1)  118/       0 : =$8D                FPA2      equ	$008D	;       4                   ; floating point accumulator #2 (mantissa only)
+(1)  119/       0 : =$91                STKSAV    equ	$0091	;       2                   ; temporary storage for the stack pointer
+(1)  120/       0 :                     ;
+(1)  121/       0 :                     ;  **
+(1)  122/       0 :                     ;  ** Basic Program and Variable allocation pointers
+(1)  123/       0 :                     ;  **
+(1)  124/       0 : =$93                TXTTAB    equ	$0093	;       2                   ; start of Basic program
+(1)  125/       0 : =$95                VARTAB    equ	$0095	;       2                   ; start of simple variables
+(1)  126/       0 : =$97                ARYTAB    equ	$0097	;       2                   ; start of array variables
+(1)  127/       0 : =$99                ARYEND    equ	$0099	;       2                   ; end of array variables (first Free RAM address)
+(1)  128/       0 : =$9B                FRETOP    equ	$009B	;       2                   ; lower bounds of string space, upper bounds of stack
+(1)  129/       0 : =$9D                STRTAB    equ	$009D	;       2                   ; pointer to used string space (grows downward)
+(1)  130/       0 : =$9F                FRESPC    equ	$009F	;       2                   ; string space allocator returns a pointer here
+(1)  131/       0 : =$A1                MEMSIZ    equ	$00A1	;       2                   ; highest RAM address used by Basic (adjustable with CLEAR)
+(1)  132/       0 :                     ;
+(1)  133/       0 :                     ;  **
+(1)  134/       0 :                     ;  ** Basic Program execution info
+(1)  135/       0 :                     ;  **
+(1)  136/       0 : =$A3                BRKLIN    equ	$00A3	;       2                   ; line number where program execution stopped
+(1)  137/       0 : =$A5                BINVAL    equ	$00A5	;       2                   ; binary integer value (often used to hold a parsed line number)
+(1)  138/       0 : =$A7                OLDPTR    equ	$00A7	;       2                   ; address where program execution stopped (for use by CONT)
+(1)  139/       0 : =$A9                TINPTR    equ	$00A9	;       2                   ; temporary storage of parser pointer
+(1)  140/       0 : =$AB                DATLIN    equ	$00AB	;       2                   ; line number where search for DATA statements is taking place
+(1)  141/       0 : =$AD                DATPTR    equ	$00AD	;       2                   ; pointer to where a READ statement will start searching for a DATA statement
+(1)  142/       0 : =$AF                DATTMP    equ	$00AF	;       2                   ; temp storage for INPUT/READ parse pointer
+(1)  143/       0 : =$B1                VARNAM    equ	$00B1	;       2                   ; temp storage of variable name
+(1)  144/       0 : =$B3                VARADR    equ	$00B3	;       2                   ; temp storage of pointer to variable descriptor
+(1)  145/       0 : =$B5                VARDES    equ	$00B5	;       2                   ; pointer to variable's descriptor
+(1)  146/       0 : =$B7                OPSAVE    equ	$00B7	;       2                   ; saved pointer to entry in the operator dispatch table
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 5 - 12/12/2022 15:11:20
+
+
+(1)  147/       0 : =$B9                RELOPS    equ	$00B9	;       1                   ; temporary relational operator flag
+(1)  148/       0 :                     ;
+(1)  149/       0 :                     ;  **
+(1)  150/       0 :                     ;  **  Floating Point Accumulators 3, 4 and 5 are
+(1)  151/       0 :                     ;  **  used mainly as scratch data storage.
+(1)  152/       0 :                     ;  **
+(1)  153/       0 :                     ;  FPA3      equ       *                            ; Packed Floating Point Accumulator #3 ($BA-$BE)
+(1)  154/       0 : =$BA                FP3EXP    equ	$00BA	;       1                   ; exponent of FPA3
+(1)  155/       0 : =$BB                DSTEND    equ	$00BB	;       2                   ; holds destination end address for upward block move
+(1)  156/       0 : =$BD                SRCEND    equ	$00BD	;       2                   ; holds source end address for upward block move
+(1)  157/       0 :                     ;
+(1)  158/       0 :                     ;  FPA4      equ       *                            ; Packed Floating Point Accumulator #4 ($BF-$C3)
+(1)  159/       0 :                     ;  DSTPTR    equ       *                            ; destination address for block moves (word)
+(1)  160/       0 : =$BF                FRACNT    equ	$00BF	;       1                   ; number of digits found on the right side of the decimal point
+(1)  161/       0 : =$C0                DECFLG    equ	$00C0	;       1                   ; decimal point flag during ASCII to binary number conversion
+(1)  162/       0 :                     ;  SRCPTR    equ       *                            ; source address for block moves
+(1)  163/       0 : =$C1                SCIEXP    equ	$00C1	;       1                   ; 8 bit exponent value when parsing scientific notation
+(1)  164/       0 : =$C2                EXPSGN    equ	$00C2	;       1                   ; sign of exponent when parsing scientific notation
+(1)  165/       0 :                     ;
+(1)  166/       0 :                     ;  FPA5      equ       *                            ; Packed Floating Point Accumulator #5 ($C4-$C8)
+(1)  167/       0 : =$C4                FP5EXP    equ	$00C4	;       1                   ; exponent and packed sign bit for FPA5
+(1)  168/       0 : =$C5                HISTRD    equ	$00C5	;       2                   ; descriptor address for 'highest' string during compaction
+(1)  169/       0 : =$C7                DESPTR    equ	$00C7	;       2
+(1)  170/       0 :                     ;
+(1)  171/       0 :                     ;  **
+(1)  172/       0 :                     ;  **  Floating Point Accumulator 0
+(1)  173/       0 :                     ;  **
+(1)  174/       0 : =$C9                FP0EXP    equ	$00C9	;       1                   ; exponent
+(1)  175/       0 : =$CA                FPA0      equ	$00CA	;       4                   ; mantissa
+(1)  176/       0 : =$CE                FP0SGN    equ	$00CE	;       1                   ; sign
+(1)  177/       0 : =$CF                COEFCT    equ	$00CF	;       1                   ; polynomial coefficient counter
+(1)  178/       0 : =$D0                STRDES    equ	$00D0	;       5                   ; temporary string descriptor
+(1)  179/       0 : =$D5                SFTSGN    equ	$00D5	;       1                   ; sign data shifted in during de-normalization
+(1)  180/       0 :                     ;
+(1)  181/       0 :                     ;  **
+(1)  182/       0 :                     ;  **  Floating Point Accumulator 1
+(1)  183/       0 :                     ;  **
+(1)  184/       0 : =$D6                FP1EXP    equ	$00D6	;       1                   ; exponent
+(1)  185/       0 : =$D7                FPA1      equ	$00D7	;       4                   ; mantissa
+(1)  186/       0 : =$DB                FP1SGN    equ	$00DB	;       1                   ; sign
+(1)  187/       0 : =$DC                RESSGN    equ	$00DC	;       1                   ; resulting sign for operation
+(1)  188/       0 : =$DD                FPSBYT    equ	$00DD	;       1                   ; sub-precision (fifth mantissa byte)
+(1)  189/       0 : =$DE                OUTPTR    equ	$00DE	;       2                   ; multi-purpose pointer (LIST, string, arrays, polynomial)
+(1)  190/       0 :                     ;
+(1)  191/       0 : =$E2                CURLIN    equ	$00E2	;       2                   ; current execution line number (-1 = not running)
+(1)  192/       0 :                     ;
+(1)  193/       0 :                     ;  **
+(1)  194/       0 :                     ;  **  I/O Device Info
+(1)  195/       0 :                     ;  **
+(1)  196/       0 : =$E4                DEVCFW    equ	$00E4	;       1                   ; current output device's tab width
+(1)  197/       0 : =$E5                DEVLCF    equ	$00E5	;       1                   ; current output device's last tab column
+(1)  198/       0 : =$E6                DEVPOS    equ	$00E6	;       1                   ; current line position on current output device
+(1)  199/       0 : =$E7                DEVWID    equ	$00E7	;       1                   ; current output device's line width
+(1)  200/       0 : =$E8                DEVNUM    equ	$00E8	;       1                   ; current I/O device number:  0 = Screen, -2 = Printer
+(1)  201/       0 : =$E9                EOFLAG    equ	$00E9	;       1                   ; EOF flag for use by CONSOLE IN hooks
+(1)  202/       0 :                     ;
+(1)  203/       0 : =$EA                RSTFLG    equ	$00EA	;       1                   ; warm start reset flag  ($55 permits warm start) 
+(1)  204/       0 :                     ;
+(1)  205/       0 :                     ;
+(1)  206/       0 :                     ;  *---------------------------------------------------------------
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 6 - 12/12/2022 15:11:20
+
+
+(1)  207/       0 :                     ;  *  The front-end of the character parser subroutine is copied here
+(1)  208/       0 :                     ;  *  from ROM during initialization.  It needs to be in RAM because
+(1)  209/       0 :                     ;  *  it utilizes self-modifying code.  When entered at CHRGET the
+(1)  210/       0 :                     ;  *  routine advances the parse pointer and picks up the next character.
+(1)  211/       0 :                     ;  *  When entered at CHRGOT the routine re-loads the character got
+(1)  212/       0 :                     ;  *  by the most recent call to CHRGET.
+(1)  213/       0 :                     ;  *
+(1)  214/       0 : =$EB                CHRGET    equ	$00EB	;       3         *  inc   CHRPTR+1     ; increment LSB of parse location
+(1)  215/       0 : =$F3                CHRGOT    equ	$00F3	;       1         *  lda   >nnnn        ; load char from parse location (Extended)
+(1)  216/       0 : =$F4                CHRPTR    equ	$00F4	;       2         *                     ; current parse location
+(1)  217/       0 :                     ;
+(1)  218/       0 :                     ;
+(1)  219/       0 :                     ;  **
+(1)  220/       0 :                     ;  **  Unused Bytes in the Direct Page
+(1)  221/       0 :                     ;  **
+(1)  222/       0 :                     ;00F9 ;            rmb       7                      ; not used
+(1)  223/       0 :                     ;
+(1)  224/       0 :                     ;
+(1)  225/       0 :                     ;  *---------------------------------------------------------------
+(1)  226/       0 :                     ;  *  The address range of $0100 to $3FFF is not mapped
+(1)  227/       0 :                     ;  *  to anything by the stock hardware.
+(1)  228/       0 :                     ;  *
+(1)  229/       0 :                     ;0100 ;            rmb       $3F00                  ; not available
+(1)  230/       0 :                     ;
+(1)  231/       0 :                     ;
+(1)  232/       0 :                     ;  *---------------------------------------------------------------
+(1)  233/       0 :                     ;  *  The 4K built-in RAM begins here
+(1)  234/       0 :                     ;  *
+(1)  235/       0 : =$4000              VIDRAM    equ	$4000	;       512                 ; 512 bytes of video RAM
+(1)  236/       0 :                     ;
+(1)  237/       0 :                     ;
+(1)  238/       0 :                     ;  ***
+(1)  239/       0 :                     ;  ***  The system variables from SCIVEC to CLDRSZ ($4200 - $4230) are
+(1)  240/       0 :                     ;  ***  initialized during a cold start with data from ROM ($F7DF - $F80F).
+(1)  241/       0 :                     ;  ***
+(1)  242/       0 :                     ;
+(1)  243/       0 :                     ;  * Secondary Interrupt Vectors (all are initialized to RTI,$00,$00)
+(1)  244/       0 : =$4200              SCIVEC    equ	$4200	;       3                   ; SCI
+(1)  245/       0 : =$4203              TOFVEC    equ	$4203	;       3                   ; Timer Overflow
+(1)  246/       0 : =$4206              OCFVEC    equ	$4206	;       3                   ; Output Compare
+(1)  247/       0 : =$4209              ICFVEC    equ	$4209	;       3                   ; Input Capture
+(1)  248/       0 : =$420C              IRQVEC    equ	$420C	;       3                   ; IRQ1
+(1)  249/       0 : =$420F              SWIVEC    equ	$420F	;       3                   ; SWI
+(1)  250/       0 : =$4212              NMIVEC    equ	$4212	;       3                   ; NMI
+(1)  251/       0 :                     ;
+(1)  252/       0 : =$4215              USRVEC    equ	$4215	;       3                   ; USR function vector (JMP ILLFNC)
+(1)  253/       0 : =$4218              RVSEED    equ	$4218	;       4                   ; variable random number seed ($4FC75259)
+(1)  254/       0 : =$421C              CAPLOK    equ	$421C	;       1                   ; keyboard Caps-Lock state ($FF)
+(1)  255/       0 : =$421D              DEBDLY    equ	$421D	;       2                   ; keyboard debounce delay ($045E)
+(1)  256/       0 : =$421F              EXECJP    equ	$421F	;       2                   ; default EXEC address (ILLFNC)
+(1)  257/       0 : =$4221              WSTVEC    equ	$4221	;       2                   ; warm start vector (WMSTRT)
+(1)  258/       0 : =$4223              LPTBTD    equ	$4223	;       2                   ; printer baud rate delay (118)
+(1)  259/       0 : =$4225              LPTLND    equ	$4225	;       2                   ; printer carriage return delay (1)
+(1)  260/       0 : =$4227              LPTCFW    equ	$4227	;       1                   ; printer tab width (16)
+(1)  261/       0 : =$4228              LPTLCF    equ	$4228	;       1                   ; printer's last tab column (112)
+(1)  262/       0 : =$4229              LPTWID    equ	$4229	;       1                   ; printer line width (132)
+(1)  263/       0 : =$422A              LPTPOS    equ	$422A	;       1                   ; current printer line position (0)
+(1)  264/       0 : =$422B              BLNKTM    equ	$422B	;       1                   ; cursor blink timer (1)
+(1)  265/       0 :                     ;
+(1)  266/       0 :                     ;  * Cassette Timing
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 7 - 12/12/2022 15:11:20
+
+
+(1)  267/       0 :                     ;
+(1)  268/       0 : =$422C              CYCPAR    equ	$422C	;       1                   ; cassette 1200/2400 Hz cycle partition (21)
+(1)  269/       0 : =$422D              CMAXTR    equ	$422D	;       1                   ; time limit for a valid cassette transition (26)
+(1)  270/       0 : =$422E              TRNPAR    equ	$422E	;       1                   ; cassette 1200/2400 Hz transition partition (11)
+(1)  271/       0 : =$422F              CLDRSZ    equ	$422F	;       2                   ; number of cassette leader bytes to write (128)
+(1)  272/       0 :                     ;
+(1)  273/       0 :                     ;  * Keyboard
+(1)  274/       0 :                     ;
+(1)  275/       0 : =$4231              KEYBUF    equ	$4231	;       8                   ; keyboard tracking state
+(1)  276/       0 : =$4239              KEYCOL    equ	$4239	;       1                   ; current keyboard column number (while polling)
+(1)  277/       0 : =$423A              CTRLKY    equ	$423A	;       1                   ; state of CONTROL key at last key-down
+(1)  278/       0 : =$423B              BRKSTA    equ	$423B	;       1                   ; tracking state for the BREAK key
+(1)  279/       0 :                     ;
+(1)  280/       0 : =$423C              PIXMSK    equ	$423C	;       1                   ; pixel mask for SET, RESET and POINT
+(1)  281/       0 : =$423D              SDSPTR    equ	$423D	;       2                   ; string descriptor stack pointer
+(1)  282/       0 : =$423F              TOPSTR    equ	$423F	;       2                   ; pointer to top entry on the string stack
+(1)  283/       0 : =$4241              STRSTK    equ	$4241	;       NMSTRS*5            ; space allocated for the string stack
+(1)  284/       0 : =$4250              TOPRAM    equ	$4250	;       2                   ; highest RAM address -1 ($4FFE with 4K)
+(1)  285/       0 : =$4252              RNDVAL    equ	$4252	;       4                   ; partial product from FP multiplication used as data for RND
+(1)  286/       0 :                     ;
+(1)  287/       0 :                     ;  * Cassette File Name Search String
+(1)  288/       0 : =$4256              CFNLEN    equ	$4256	;       1                   ; length of cassette file name search string
+(1)  289/       0 : =$4257              CFNSTR    equ	$4257	;       8                   ; cassette file name search string buffer
+(1)  290/       0 :                     ;
+(1)  291/       0 :                     ;  * Cassette File Name Block Buffer
+(1)  292/       0 :                     ;
+(1)  293/       0 : =$425F              NAMBLK    equ	$425F	;       8                   ; file name
+(1)  294/       0 : =$4267              CFTYPE    equ	$4267	;       1                   ; file type ($00 = Basic; $02 = ML; $04 = Array Data)
+(1)  295/       0 : =$4268              ASCFLG    equ	$4268	;       1                   ; ASCII file flag ($00 = Binary; $FF = ASCII)
+(1)  296/       0 : =$4269              GAPFLG    equ	$4269	;       1                   ; file gaps flag ($00 = continuous; $FF = gaps)
+(1)  297/       0 : =$426A              CFEXEC    equ	$426A	;       2                   ; EXEC addrress for ML file
+(1)  298/       0 : =$426C              LDSIZE    equ	$426C	;       2                   ; LOAD address for ML file; SIZE of Basic/Array file
+(1)  299/       0 :                     ;
+(1)  300/       0 :                     ;  * Cassette I/O
+(1)  301/       0 :                     ;
+(1)  302/       0 : =$426E              CLDFLG    equ	$426E	;       1                   ; set to $FF inside CLOAD to force a NEW upon error
+(1)  303/       0 : =$426F              CASBEG    equ	$426F	;       2                   ; start address for cassette file output
+(1)  304/       0 : =$4271              CASEND    equ	$4271	;       2                   ; end address for cassette file output
+(1)  305/       0 : =$4273              NOLOAD    equ	$4273	;       1                   ; SKIPF flag (prevents loading cassette data into RAM)
+(1)  306/       0 : =$4274              MYSTRY    equ	$4274	;       1                   ; mystery flag tested by cassette file scan routine 
+(1)  307/       0 : =$4275              BLKTYP    equ	$4275	;       1                   ; cassette file block type
+(1)  308/       0 : =$4276              BLKLEN    equ	$4276	;       1                   ; cassette file block length
+(1)  309/       0 : =$4278              BLKPTR    equ	$4278	;       2                   ; cassette file block pointer
+(1)  310/       0 : =$427A              BLKSUM    equ	$427A	;       1                   ; cassette file block checksum
+(1)  311/       0 : =$427B              CCTERR    equ	$427B	;       1                   ; cassette byte counter and error flag
+(1)  312/       0 : =$427C              CBITCT    equ	$427C	;       1                   ; cassette input bit/phase counter
+(1)  313/       0 : =$427D              CASTIM    equ	$427D	;       1                   ; cassette signal transition/cylce time
+(1)  314/       0 : =$427E              CASPOL    equ	$427E	;       1                   ; cassette input polarity (+/-96)
+(1)  315/       0 :                     ;
+(1)  316/       0 : =$427F              IKYCOD    equ	$427F	;       1                   ; key code discovered during BREAK check (for INKEY$)
+(1)  317/       0 : =$4280              CURPOS    equ   $4280   ;       2                   ;
+(1)  318/       0 : =$4280              CRSPTR    equ	$4280	;       2                   ; cursor Position
+(1)  319/       0 : =$4282              CRSCLR    equ	$4282	;       1                   ; cursor color
+(1)  320/       0 : =$4283              ENDFLG    equ	$4283	;       1                   ; STOP / END flag:  negative = STOP, positive = END
+(1)  321/       0 : =$4284              UNCRFL    equ	$4284	;       1                   ; flags byte used to UNCRUNCH a program line
+(1)  322/       0 :                     ;
+(1)  323/       0 :                     ;  * Extension Hooks
+(1)  324/       0 :                     ;
+(1)  325/       0 : =$4285              RVEC1     equ	$4285	;       3                   ; extension hook for CONSOLE IN
+(1)  326/       0 : =$4288              RVEC2     equ	$4288	;       3                   ; extension hook for CONSOLE OUT
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 8 - 12/12/2022 15:11:20
+
+
+(1)  327/       0 : =$428B              RVEC3     equ	$428B	;       3                   ; extension hook to install Tab and Line settings for output device
+(1)  328/       0 : =$428E              RVEC4     equ	$428E	;       3                   ; extension hook for program initialization (NEW,RUN,CLEAR)
+(1)  329/       0 : =$4291              RVEC5     equ	$4291	;       3                   ; extension hook for line input
+(1)  330/       0 : =$4294              RVEC6     equ	$4294	;       3                   ; extension hook for expression terminal evaluator
+(1)  331/       0 : =$4297              RVEC7     equ	$4297	;       3                   ; extension hook for implementing ON ERR GOTO
+(1)  332/       0 : =$429A              RVEC8     equ	$429A	;       3                   ; extension hook for additional error messages
+(1)  333/       0 : =$429D              RVEC9     equ	$429D	;       3                   ; extension hook for ASCII to FP number conversion
+(1)  334/       0 : =$42A0              RVEC10    equ	$42A0	;       3                   ; extension hook for command dispatcher
+(1)  335/       0 : =$42A3              RVEC11    equ	$42A3	;       3                   ; extension hook for crunching keywords
+(1)  336/       0 : =$42A6              RVEC12    equ	$42A6	;       3                   ; extension hook for uncrunching a token
+(1)  337/       0 : =$42A9              RVEC13    equ	$42A9	;       3                   ; extension hook for polling the keyboard
+(1)  338/       0 : =$42AC              RVEC14    equ	$42AC	;       3                   ; extension hook for interpreting CONTROL key values
+(1)  339/       0 :                     ;
+(1)  340/       0 : =$42AF              LNKLSB    equ	$42AF	;       1                   ; $FF - ensures a non-zero link LSB during program line insertion
+(1)  341/       0 : =$42B0              LINUMB    equ	$42B0	;       2                   ; the program line number being inserted or deleted
+(1)  342/       0 : =$42B2              LINBUF    equ	$42B2	;       130                 ; line input buffer (128 characters plus two null terminators)
+(1)  343/       0 : =$4334              MOVSTR    equ	$4334	;       1                   ; first byte of buffer for a small string to be moved into string space
+(1)  344/       0 : =$4335              STRBUF    equ	$4335	;       17                  ; buffer for a small string (typically the output of Number-to-String)
+(1)  345/       0 :                     ;
+(1)  346/       0 :                     ;  PRGRAM    equ       *                   ; start of program space
+(1)  347/       0 : =$4335              PRGRAM    equ   $4335
+(1)  348/       0 :                     
+(1)  349/       0 : =$F9D0              PRTSER  equ     $F9D0 ; Serial out to the printer
+(1)  350/       0 :                     ; Humbug uses 4400
+(1)  351/       0 :                     ;                 * Jump table for public subroutines
+(1)  352/       0 : =$FFDC              POLCAT	equ	$FFDC ; F8 83           POLCAT    fdb       KEYIN               ; read keyboard
+(1)  353/       0 : =$F883              KEYIN   equ	$F883 ;
+(1)  354/       0 : =$FFDE              CHROUT	equ	$FFDE ; F9 C6           CHROUT    fdb       PUTCHR              ; console out
+(1)  355/       0 : =$F9C6              PUTCHR  equ	$F9C6 ;
+(1)  356/       0 : =$FFE0              RDCLDR	equ	$FFE0 ; FF 4E           RDCLDR    fdb       SYNLDR              ; read a cassette leader
+(1)  357/       0 : =$FF4E              SYNLDR  equ	$FF4E ;
+(1)  358/       0 : =$FFE2              BLKIN	equ	$FFE2 ; FE B9           BLKIN     fdb       GETBLK              ; read a block from cassette
+(1)  359/       0 : =$FEB9              GETBLK  equ	$FEB9 ;
+(1)  360/       0 : =$FFE4              BLKOUT	equ	$FFE4 ; FC C0           BLKOUT    fdb       PUTBLK              ; write a block to cassette 
+(1)  361/       0 : =$FCC0              PUTBLK  equ	$FCC0 ;
+(1)  362/       0 : =$FFE6              SNDOUT	equ	$FFE6 ; FF AB           SNDOUT    fdb       SNDGEN              ; generate sound through TV speaker
+(1)  363/       0 : =$FFAB              SNDGEN  equ	$FFAB ;
+(1)  364/       0 : =$FFE8              WRTLDR	equ	$FFE8 ; FC B7           WRTLDR    fdb       LDROUT              ; write cassette leader
+(1)  365/       0 : =$FCB7              LDROUT  equ	$FCB7 ;
+(1)  366/       0 : =$FFEA              IRETRN	equ	$FFEA ; EC E3           IRETRN    fdb       GIVABF              ; convert integer in ACCD to FP in FPA0
+(1)  367/       0 : =$ECE3              GIVABF  equ	$ECE3 ;
+(1)  368/       0 : =$FFEC              GETARG	equ	$FFEC ; EB C7           GETARG    fdb       INTCNV              ; convert FPA0 to an integer in ACCD
+(1)  369/       0 : =$EBC7              INTCNV  equ	$EBC7 ;
+(1)  370/       0 :                     ; 
+(1)  371/       0 :                     ;                 *
+(1)  372/       0 :                     ;                 * HD6303 NOTE:
+(1)  373/       0 :                     ;                 *  The HD6303 has 1 additional vector at $FFEE which is used for
+(1)  374/       0 :                     ;                 *  Illegal Instruction and Illegal Address trapping.  The MC-10 ROM
+(1)  375/       0 :                     ;                 *  stores the address of FPA0 ($00C9) in this location, but never
+(1)  376/       0 :                     ;                 *  references it.
+(1)  377/       0 :                     ;                 *
+(1)  378/       0 :                     ; 
+(1)  379/       0 :                     ;                 * CPU Vectors
+(1)  380/       0 :                     ;FFEE ; 00 C9                     fdb       FP0EXP              ; address of FPA0
+(1)  381/       0 :                     ;FP0EXP      equ  $00C9
+(1)  382/       0 :                     ;FFF0 ; 42 00                     fdb       SCIVEC              ; serial comm interrupt    (maskable)
+(1)  383/       0 :                     ;SCIVEC      equ  $4200
+(1)  384/       0 :                     ;FFF2 ; 42 03                     fdb       TOFVEC              ; timer overflow interrupt (maskable)
+(1)  385/       0 :                     ;TOFVEC      equ  $4203
+(1)  386/       0 :                     ;FFF4 ; 42 06                     fdb       OCFVEC              ; output compare interrupt (maskable)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 9 - 12/12/2022 15:11:20
+
+
+(1)  387/       0 :                     ;OCFVEC      equ  $4206
+(1)  388/       0 :                     ;FFF6 ; 42 09                     fdb       ICFVEC              ; input capture interrupt  (maskable)
+(1)  389/       0 :                     ;ICFVEC      equ  $4209
+(1)  390/       0 :                     ;FFF8 ; 42 0C                     fdb       IRQVEC              ; external IRQ             (maskable)
+(1)  391/       0 :                     ;IRQVEC      equ  $420C
+(1)  392/       0 :                     ;FFFA ; 42 0F                     fdb       SWIVEC              ; software interrupt
+(1)  393/       0 :                     ;SWIVEC      equ  $420F
+(1)  394/       0 :                     ;FFFC ; 42 12                     fdb       NMIVEC              ; non-maskable interrupt
+(1)  395/       0 :                     ;NMIVEC      equ  $4212
+(1)  396/       0 :                     ;FFFE ; F7 2E                     fdb       CPURES              ; CPU reset
+(1)  397/       0 : =$F72E              RESET       equ  $F72E
+(1)  398/       0 : =$F72E              CPURES      equ  $F72E
+(1)  399/       0 :                     ; 
+(1)  400/       0 :                     ;                           end
+(1)  401/       0 :                     ; 
+(1)  402/       0 :                     ;*
+(1)  403/       0 :                     ;* CONSOLE IN
+(1)  404/       0 :                     ;* Read one byte from the current device and return it in ACCA.  The only device supported
+(1)  405/       0 :                     ;* by MicroColor Basic is the keyboard.  Other devices can be implemented through the
+(1)  406/       0 :                     ;* RVEC1 extension hook.  Such extensions can also set EOFLAG ($009E) to indicate an
+(1)  407/       0 :                     ;* End-Of-File condition.
+(1)  408/       0 :                     ;* 
+(1)  409/       0 : =$F865              CNSLIN      equ  $F865          ;* Read one byte from the current device and return it in ACCA
+(1)  410/       0 : =$F9D0              OUTSER      equ  $F9D0          ;* Send character in ACCA to serial port printer
+(1)  411/       0 : =$FC8E              LFC8E       equ  $FC8E
+(1)  412/       0 : =$FC5D              LFC5D	    equ  $FC5D
+(1)  413/       0 : =$FEB0              LFEB0       equ  $FEB0
+(1)  414/       0 : =$FEB6              LFEB6       equ  $FEB6
+(1)  415/       0 : =$FF4E              LFF4E       equ  $FF4E
+(1)  416/       0 :                     
+(1)  417/       0 :                     ; ------------------------------------------------------------------------------
+(1)  418/       0 :                     ;* MEMORY MAP
+(1)  419/       0 :                     ;* Hex Address
+(1)  420/       0 :                     ;* C000 - FFFF 16K ROM (only 8K used)
+(1)  421/       0 :                     ;* 9000 - BFFF 16K I/O Slot (Keyboard and VDG control)
+(1)  422/       0 :                     ;* 4000 - 8FFF 16K RAM (4K - 20K used)
+(1)  423/       0 :                     ;* 0100 - 3FFF Not Used
+(1)  424/       0 :                     ;* 0080 - 00FF RAM internal to the 6803
+(1)  425/       0 :                     ;* 0015 - 007F Not Used
+(1)  426/       0 :                     ;* 0014 RAM Control Register
+(1)  427/       0 :                     ;* 0013 Not Used
+(1)  428/       0 :                     ;* 0012 Not Used
+(1)  429/       0 :                     ;* 0011 Not Used
+(1)  430/       0 :                     ;* 0010 Not Used
+(1)  431/       0 :                     ;* 000F Port 3 Control and Status Register
+(1)  432/       0 :                     ;* 000E Input Capture Register (low byte)
+(1)  433/       0 :                     ;* 000D Input Capture Register (high byte)
+(1)  434/       0 :                     ;* 000C Output Compare Register (low byte)
+(1)  435/       0 :                     ;* 000B Output Compare Register (high byte)
+(1)  436/       0 :                     ;* 000A Counter (low byte)
+(1)  437/       0 :                     ;* 0009 Counter (high byte)
+(1)  438/       0 :                     ;* 0008 Timer Control and Status Register
+(1)  439/       0 :                     ;* 0007 Not Used
+(1)  440/       0 :                     ;* 0006 Not Used
+(1)  441/       0 :                     ;* 0005 Not Used
+(1)  442/       0 :                     ;* 0004 Not Used
+(1)  443/       0 :                     ;* 0003 Miscellaneous I/O Data Register
+(1)  444/       0 :                     ;* 0002 Keyboard Output Lines
+(1)  445/       0 :                     ;* 0001 Data Direction Register for miscellaneous I/O
+(1)  446/       0 :                     ;* 0000 Data Direction Register for keyboard lines
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm(humbug.inc) - page 10 - 12/12/2022 15:11:20
+
+
+(1)  447/       0 :                     ;* 
+(1)  448/       0 :                     ;* $0000 - $00FF        6803 internal RAM
+(1)  449/       0 :                     ;* $0100 - $3FFF        Not used
+(1)  450/       0 :                     ;* $4000 - $41FF	Screen RAM
+(1)  451/       0 :                     ;* $4200 - $4FFF	System and User RAM
+(1)  452/       0 :                     ;* $5000 - $5FFF        Not used
+(1)  453/       0 :                     ;* $6000 - $6FFF        Phatom RAM
+(1)  454/       0 :                     ;* $7000 - $7FFF        Not used
+(1)  455/       0 :                     ;* $8000		VDG and Sound
+(1)  456/       0 :                     ;* $8001 - $BFFF        4095 Latch Phantoms
+(1)  457/       0 :                     ;* $C000 - $DFFF        BASIC ROM
+(1)  458/       0 :                     ;* $E000 - $FFEF        Phatom ROM
+(1)  459/       0 :                     ;* $FFF0 - $FFFF        System vectors
+(1)  460/       0 :                     ; ------------------------------------------------------------------------------
+(1)  461/       0 :                     
+      29/       0 :                             ;;
+      30/       0 :                             ;; $4000 - $41FF - Video RAM
+      31/       0 :                             ;; $4200 - $4334 - OS Variables
+      32/       0 :                             ;; $4235 - End of RAM - Program RAM
+      33/       0 :                             ;; $4000 - $7FFF - 4K + 16K
+      34/       0 :                             ;; $7500 - $7FFF - Humbug+ @7500
+      35/       0 :                             ;;
+      36/       0 : =>UNDEFINED                 IFNDEF  NOCLEAR
+      37/       0 : =$C                 CLS     EQU     $0C
+      38/       0 : =>FALSE                     ELSE
+      39/       0 :                     CLS     EQU     $20
+      40/       0 : [36]                        ENDIF
+      41/       0 :                     ; ===========================================================================
+      42/       0 :                     ;
+      43/    7500 :                     	org	$7500           ;
+      44/    7500 :                             ;; The 6800 Humbug is from the Kilobaud-Thoughts13.pdf
+      45/    7500 :                             ;;                           & Kilobaud-Thoughts14.pdf
+      46/    7500 :                             ;; But referenced HUMBUG09.TXT for some of this code.
+      47/    7500 :                             ;; 6800 has fewer instructions
+      48/    7500 :                             ;; 6803 is closer to the 6809 (no Y reg)
+      49/    7500 :                             ;;
+      50/    7500 :                             ;; lilbug has 12 vectors
+      51/    7500 :                             ;; humnug09, 13 vectors
+      52/    7500 :                             ;; humbug+, has 15 vectors
+      53/    7500 :                     ;                               ;* 6803        6809
+      54/    7500 : 7E 75 33            MAIN:	jmp	RESTART         ;* L7533 -  1  RESTRT
+      55/    7503 : 7E 75 94            	jmp	NXTCMD          ;* L7594 -  2  WARMST
+      56/    7506 : 7E 77 33            	jmp	INEEE           ;* L7733 -  3  NXTCMD (NextCmd?)
+      57/    7509 : 7E 77 63            	jmp	INCH7           ;* L7763 -  4  INEEE
+      58/    750C : 7E 76 B8            	jmp	INHEX           ;* L76B8 -  5  BADDR
+      59/    750F : 7E 76 8A            	jmp	BADDR           ;* L768A -  6  OUTEEE (CRLFV (L 768A))
+      60/    7512 : 7E 77 69            	jmp	OUTEEE          ;* L7769 -  7  PDATA
+      61/    7515 : 7E 77 AE            	jmp	INCH8           ;* L77AE -  9  CRLF
+      62/    7518 : 7E 77 CD            	jmp	L77CD           ;* L77CD -  9  OUTS
+      63/    751B : 7E 77 24            	jmp	PDATA           ;* L7724 - 10  OUTHR
+      64/    751E : 7E 77 17            	jmp	OUTCH           ;* L7717 - 12  OUT2HS
+      65/    7521 : 7E 76 DA            	jmp	OUTS            ;* L76DA - 13  OUT4HS
+      66/    7524 : 7E 76 A8            	jmp	OUTHR           ;* L76A8 - 14
+      67/    7527 : 7E 76 D8            	jmp	OUT2HS          ;* L76D8 - 15
+      68/    752A : 7E 76 D6            	jmp	OUT4HS          ;* L76D6 - 16
+      69/    752D :                     ;       ;; ------------------------------------------------------------------
+      70/    752D :                             ;; I think it is safe to assume that the above 6803 table is not
+      71/    752D :                             ;; correct, it doesn't line up with the 6800 article or the 6809
+      72/    752D :                             ;; vectors.
+      73/    752D :                     ;       ;; ------------------------------------------------------------------
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 11 - 12/12/2022 15:11:20
+
+
+      74/    752D :                     ;
+      75/    752D : 09                  L752D:  dex                     ; $09     Odd nobody jumps here (???)
+      76/    752E : 66 00               	ror	$00,x           ; $66 $00
+      77/    7530 :                     L7530:  
+      78/    7530 : 7F 77 02            MONRST: clr	X7702           ; !! jumps here (monitor reset)
+      79/    7533 :                     ;L7533:
+      80/    7533 :                     COLDST: 
+      81/    7533 : 8E 7F A0            RESTART:lds	#STACK          ;* $4EA0 $7FA0
+      82/    7536 :                             ;; Load the contents of SWIVC $7AC4 (SWI Vector?) into X
+      83/    7536 :                             ;; Store it into SWIADDR ($4210 - OS addr)
+      84/    7536 :                             ;; Add the JMP ($7E)
+      85/    7536 : FE 7A C1            	ldx	SWIHDLR         ;* *$7AC4 SWIVC ?
+      86/    7539 : FF 42 10            	stx	SWIADDR         ;* SWIADDR ($4210)
+      87/    753C : 86 7E               	ldaa	#JMPINST        ;* #7E = jmp
+      88/    753E : B7 42 0F            	staa	SWIVEC          ;* Hard coded as 420F (also in hb4400)
+      89/    7541 :                             ;; 
+      90/    7541 : CE 75 00            	ldx	#MAIN           ;* $7500
+      91/    7544 : FF 42 1F            	stx	EXECJP          ;* X421F
+      92/    7547 :                             ;; 
+      93/    7547 : CE 76 FF            	ldx	#$76FF
+      94/    754A : 6F 00               	clr	$00,x           ;* $76FF = 0
+      95/    754C : 6F 01               	clr	$01,x           ;* $7700 = 0
+      96/    754E : 6F 02               	clr	$02,x           ;* $7701 = 0 (L 754E:)
+      97/    7550 :                             ;; 
+      98/    7550 : 86 0C               	ldaa	#CLS            ;* FF (FormFeed - Clears the scr)
+      99/    7552 : BD 77 69            	jsr	OUTEEE          ;* was PDATA (L 7769)
+     100/    7555 : CE 75 7B            	ldx	#HBUGSTR        ;* $757B "HUMB..."
+     101/    7558 : BC 77 02            	cpx	X7702           ;* Humbug not restart? Str already loaded?
+     102/    755B : 27 0D               	beq	WARMST          ;* Yes? Then skip  (L 756A)
+     103/    755D : CE 76 EF            	ldx	#BKTAB          ;* Dst JMP table $45EF
+     104/    7560 :                             ;; 
+     105/    7560 : 86 FF               	ldaa	#$FF            ;* Src JMP table $FF0C - There is no ldad #$FF0C
+     106/    7562 : C6 0C               	ldab	#$0C            ;* $0C bytes
+     107/    7564 :                     L7564:
+     108/    7564 : A7 00               FILL:   staa	$00,x           ;* Fill 76EF -760D with $FF
+     109/    7566 : 08                  	inx
+     110/    7567 : 5A                  	decb
+     111/    7568 : 26 FA               	bne	FILL            ; (L 7564)
+     112/    756A :                     L756A:
+     113/    756A :                     ;NXTCMD:                         ;
+     114/    756A : 8E 7F A0            WARMST: lds	#STACK          ; ($ 7FA0)
+     115/    756D : BD 77 17            	jsr	CRLF            ; (L 7717)
+     116/    7570 : CE 75 7B            	ldx	#HBUGSTR
+     117/    7573 : FF 77 02            	stx	X7702
+     118/    7576 : BD 77 24            	jsr	PDATA           ; (L 7724)
+     119/    7579 : 20 19               	bra	NXTCMD          ; (L 7594)
+     120/    757B :                     ;
+     121/    757B : (MACRO)             HBUGSTR:fcc     "HUMBUG+(C) 1983 P. STARK" ; S447B:
+     122/    7593 : 04                          byt     $04
+     123/    7594 :                     ;
+     124/    7594 :                             ;;
+     125/    7594 :                             ;; NXTCMD - return the 2 byte command
+     126/    7594 :                             ;; 
+     127/    7594 :                     L7594:
+     128/    7594 : 8E 7F A0            NXTCMD: lds	#STACK          ; I think this is the real NXTCMD (L 7594 $7FA0)
+     129/    7597 : BD 77 17            	jsr	CRLF            ; L7717
+     130/    759A : 86 0F               	ldaa	#$0F
+     131/    759C : B7 77 04            	staa	X7704
+     132/    759F : 86 3A               	ldaa	#$3A            ; ':'
+     133/    75A1 : BD 77 69            	jsr	OUTEEE          ; (L 7769)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 12 - 12/12/2022 15:11:20
+
+
+     134/    75A4 : BD 77 33            	jsr	INEEE           ; (L 7733) njc
+     135/    75A7 : 36                  	psha
+     136/    75A8 : BD 77 33            	jsr     INEEE           ;
+     137/    75AB :                     L75AB:
+     138/    75AB : 16                  	tab
+     139/    75AC : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+     140/    75AF : 32                  	pula
+     141/    75B0 : CE 76 44            	ldx	#$7644
+     142/    75B3 : FF 76 EC            	stx	X76EC
+     143/    75B6 : CE 75 D8            	ldx	#$75D8
+     144/    75B9 :                     L75B9:
+     145/    75B9 : 08                  	inx
+     146/    75BA : 08                  	inx
+     147/    75BB : 08                  	inx
+     148/    75BC : 08                  	inx
+     149/    75BD : BC 76 EC            	cpx	X76EC
+     150/    75C0 : 27 13               	beq	L75D5
+     151/    75C2 : A1 00               	cmpa	$00,x
+     152/    75C4 : 26 F3               	bne	L75B9
+     153/    75C6 : E1 01               	cmpb	$01,x
+     154/    75C8 : 26 EF               	bne	L75B9           ; (L 75B9)
+     155/    75CA : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+     156/    75CD : 08                  	inx
+     157/    75CE : 08                  	inx
+     158/    75CF : EE 00               	ldx	$00,x
+     159/    75D1 : AD 00               	jsr	$00,x           ; INFO: index jump
+     160/    75D3 : 20 BF               	bra	NXTCMD          ; (L 7594)
+     161/    75D5 :                     ;
+     162/    75D5 :                     L75D5:
+     163/    75D5 : 86 3F               	ldaa	#$3F            ; 3F = '?'
+     164/    75D7 : BD 77 69            	jsr	OUTEEE          ; (L 7769)
+     165/    75DA : 20 B8               	bra	NXTCMD          ; (L 7594)
+     166/    75DC :                     ;
+     167/    75DC :                     ;
+     168/    75DC :                     ;;; ============================================================================
+     169/    75DC :                     ;;;
+     170/    75DC :                     ;;; HUMBUG COMMANDS (Confirmed)
+     171/    75DC :                     ;;; AD AI AO AT BA BO BR CI CS DE EX FI FM HD HE JU MC ME MM MT RC RE SA SS ST !!
+     172/    75DC :                     ;;;
+     173/    75DC :                     ;;; LO - Load MIKBUG Tape
+     174/    75DC :                     ;;; PU - Punch/Save NIKBUG formatted tape
+     175/    75DC :                     ;;; EN - END OF TAPE FORMATTING (S9 - end punch tape)
+     176/    75DC :                     ;;; FD - REGULAR DISK BOOT (Flex)
+     177/    75DC :                     ;;; PD - Pericom Disk Boot
+     178/    75DC :                     ;;; GO - Go to user program using A048/A049
+     179/    75DC :                     ;;; CL - CLEAR SCREEN
+     180/    75DC :                     ;;; FI - Find one, two or three bytes in memory
+     181/    75DC :                     ;;; HD - Hexdump (From ... To ...)
+     182/    75DC :                     ;;; FM - Fill memory
+     183/    75DC :                     ;;; CS - Compute checksum
+     184/    75DC :                     ;;; MT - memory test
+     185/    75DC :                     ;;; PC - Print Contents of A048/A049 (Program Counter)
+     186/    75DC :                     ;;; PU - Punch tape
+     187/    75DC :                     ;;; DE - Desemble memory (display machine code, not opcodes)
+     188/    75DC :                     ;;; BP - Breakpoint printout
+     189/    75DC :                     ;;; BR - Breakpoint set or reset
+     190/    75DC :                     ;;; CO - Continue after BP
+     191/    75DC :                     ;;; RE - Register examine
+     192/    75DC :                     ;;; SS - Single Step
+     193/    75DC :                     ;;; AI - ASCII Input into memory
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 13 - 12/12/2022 15:11:20
+
+
+     194/    75DC :                     ;;; AO - ASCII Output from memory
+     195/    75DC :                     ;;; MO - Move Memory contents
+     196/    75DC :                     ;;;
+     197/    75DC :                     ;;; AD - ASCII Dump
+     198/    75DC :                     ;;; AT - Analyze Tape
+     199/    75DC :                     ;;; BA - Change BAUD
+     200/    75DC :                     ;;; CS - Compute Checksum
+     201/    75DC :                     ;;; EX - Exit Return to BASIC
+     202/    75DC :                     ;;; HE - Help
+     203/    75DC :                     ;;; JU - Jump (like GO)
+     204/    75DC :                     ;;; MC - Memory Compare
+     205/    75DC :                     ;;; ME - Memory Exam/Change
+     206/    75DC :                     ;;; SA - Save to Cassette
+     207/    75DC :                     ;;; SS - Single Step
+     208/    75DC :                     ;;; ST - Start SS (if no Breakpoint)
+     209/    75DC :                     ;;; !! - Monitor Reset
+     210/    75DC :                     ;;; U1 - User 1 (not added yet)
+     211/    75DC :                     ;;; U2 - User 2 (not added yet)
+     212/    75DC :                     ;;; ============================================================================
+     213/    75DC :                     COMTAB:
+     214/    75DC :                     L75DC:
+     215/    75DC : (MACRO)             	FCC     "AD"            ; ASCII Dump
+     216/    75DE : (MACRO)                     FDB     ADINST          ; $7C85
+     217/    75E0 : (MACRO)                     FCC     "AI"            ; ASCII Input
+     218/    75E2 : (MACRO)                     FDB     AIINST          ; $7E77 - Last byte code, $4CFF ???
+     219/    75E4 : (MACRO)                     FCC     "AO" 		; ASCII Output Oh not Zero
+     220/    75E6 : (MACRO)                     FDB     AOINST          ; $7EA8
+     221/    75E8 : (MACRO)                     FCC     "AT"            ; Analyze Tape
+     222/    75EA : (MACRO)                     FDB     ATINST          ; $7817
+     223/    75EC :                     BASIC:               		;* L45EC/X45EC 0x45EC Not BASIC - Change BAUD
+     224/    75EC : (MACRO)                     FCC     "BA"            ; Change Baud
+     225/    75EE : (MACRO)                     FDB     BAINST          ; $77DA
+     226/    75F0 : (MACRO)                     FCC     "BP"            ; Print Break points
+     227/    75F2 : (MACRO)                     FDB     BPINST          ; $7A90
+     228/    75F4 : (MACRO)                     FCC     "BR"            ;set/reset Breakpoints
+     229/    75F6 : (MACRO)                     FDB     BRINST          ; $7A23
+     230/    75F8 : (MACRO)                     FCC     "CO"            ; Continue (after a break)
+     231/    75FA : (MACRO)                     FDB     COINST          ; $7B67
+     232/    75FC : (MACRO)                     FCC     "CS"            ; Checksum
+     233/    75FE : (MACRO)                     FDB     CSINST		; $7E57
+     234/    7600 : (MACRO)                     FCC     "DE"            ; Desemble (not Disassemble, only bytes)
+     235/    7602 : (MACRO)                     FDB     DEINST          ; $79B4
+     236/    7604 : (MACRO)             L4504:  FCC     "EX"            ; Exit to BASIC
+     237/    7606 : (MACRO)                     FDB     EXINST          ; $79A9
+     238/    7608 : (MACRO)                     FCC     "FI"            ; Find 1, 2 or 3 bytes
+     239/    760A : (MACRO)                     FDB     FIINST          ; $7DB5
+     240/    760C : (MACRO)                     FCC     "FM"            ; Fill Memory
+     241/    760E : (MACRO)                     FDB     FMINST          ; $7E3E
+     242/    7610 : (MACRO)                     FCC     "HD"            ; Hex Dump
+     243/    7612 : (MACRO)                     FDB     HDINST          ; $7C85
+     244/    7614 : (MACRO)                     FCC     "HE"            ; Help
+     245/    7616 : (MACRO)                     FDB     HEINST          ; $7F4A
+     246/    7618 : (MACRO)                     FCC     "JU"            ; Jump (actually JSR)
+     247/    761A : (MACRO)                     FDB     JUINST          ; $76DE
+     248/    761C : (MACRO)                     FCC     "MC"            ; Memory Compare
+     249/    761E : (MACRO)                     FDB     MCINST          ; $7CFE
+     250/    7620 : (MACRO)                     FCC     "ME"            ; Memory Examine
+     251/    7622 : (MACRO)                     FDB     MEINST          ; $7644
+     252/    7624 : (MACRO)                     FCC     "MM"            ; Memory Move
+     253/    7626 : (MACRO)                     FDB     MMINST          ; $7ED5
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 14 - 12/12/2022 15:11:20
+
+
+     254/    7628 : (MACRO)                     FCC     "MT"            ; Memory Test
+     255/    762A : (MACRO)                     FDB     MTINST          ; $7D69
+     256/    762C : (MACRO)                     FCC     "RC"            ; Register Change
+     257/    762E : (MACRO)                     FDB     RCINST          ; $7B36
+     258/    7630 : (MACRO)                     FCC     "RE"            ; Register Examine
+     259/    7632 : (MACRO)                     FDB     REINST          ; $7AD6
+     260/    7634 : (MACRO)                     FCC     "SA"            ; CSAVEM to cassette
+     261/    7636 : (MACRO)                     FDB     SAINST          ; $78CC
+     262/    7638 : (MACRO)                     FCC     "SS"            ; Single Step (lots of limitations, careful)
+     263/    763A : (MACRO)                     FDB     SSINST          ; $7B99
+     264/    763C : (MACRO)                     FCC     "ST"            ; Start SS (if no Breakpoint)
+     265/    763E : (MACRO)                     FDB     STINST          ; $7B81
+     266/    7640 :                     ;;; 
+     267/    7640 : (MACRO)                     FCC     "!!"            ; Monitor Reset
+     268/    7642 : (MACRO)                     FDB     MONRST          ; $7530
+     269/    7644 :                     ;;; 
+     270/    7644 : =>UNDEFINED         	IFDEF   UNTRUE
+     271/    7644 :                             ;;
+     272/    7644 :                             ;; Extra User commands
+     273/    7644 :                             ;; 
+     274/    7644 :                             FCC     "U1"
+     275/    7644 :                             FDB     USER1           ;
+     276/    7644 :                             ;; 
+     277/    7644 :                             FCC     "U2"
+     278/    7644 :                             FDB     USER2           ;
+     279/    7644 :                             ;; 
+     280/    7644 : [270]                       ENDIF
+     281/    7644 :                     ;;; 
+     282/    7644 : =$7644              TABEND  equ     *
+     283/    7644 :                             ;; 
+     284/    7644 :                             ;;* MEMORY EXAMINE AND CHANGE FUNCTION
+     285/    7644 :                             ;;
+     286/    7644 : 8D 44               MEINST:	bsr	BADDR           ; (L 768A - $8D $44)
+     287/    7646 : BD 77 17            CHANGE0:jsr	CRLF            ; (L 7717 - L 7646:)
+     288/    7649 : CE 77 09            	ldx	#BADDRH         ; ($ 7709)
+     289/    764C : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+     290/    764F : FE 77 09            	ldx	BADDRH          ; (X 7709) njc
+     291/    7652 : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+     292/    7655 : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+     293/    7658 :                     L7658:
+     294/    7658 : 8D 5B               CHANGE1:bsr	INEEEV          ; (L 76B5)
+     295/    765A : 81 20               	cmpa	#$20            ; Space
+     296/    765C : 27 FA               	beq	CHANGE1         ; (L 7658)
+     297/    765E : 81 0D               	cmpa	#$0D            ; CR
+     298/    7660 : 27 25               	beq	NXTCMDV         ; (L 7687)
+     299/    7662 : 81 5E               	cmpa	#$5E            ; ^ (up arrow?)
+     300/    7664 : 26 07               	bne	CHANGE2         ; (L 766D)
+     301/    7666 : 09                  	dex
+     302/    7667 : 09                  	dex
+     303/    7668 : FF 77 09            	stx	BADDRH          ; (X 7709)
+     304/    766B : 20 D9               	bra	CHANGE0         ; (L 7646)
+     305/    766D :                     ;
+     306/    766D :                     L766D:
+     307/    766D : FF 77 09            CHANGE2:stx	X7709
+     308/    7670 : 81 30               	cmpa	#$30            ; 0
+     309/    7672 : 25 D2               	bcs	CHANGE0         ; (L 7646)
+     310/    7674 : 81 46               	cmpa	#$46            ; F
+     311/    7676 : 22 CE               	bhi	CHANGE0         ; (L 7646)
+     312/    7678 : 8D 40               	bsr	CVTHEX          ; (L 76BA)
+     313/    767A : 8D 1E               	bsr	BYTE1           ; (L 769A) @FIXME?
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 15 - 12/12/2022 15:11:20
+
+
+     314/    767C : 09                  	dex
+     315/    767D : A7 00               	staa	$00,x
+     316/    767F : A1 00               	cmpa	$00,x
+     317/    7681 : 27 C3               	beq	CHANGE0         ; (L 7646)
+     318/    7683 : 86 3F               	ldaa	#$3F            ; ?
+     319/    7685 : 8D 2B               	bsr	OUEXIT          ; (L 76B2)
+     320/    7687 :                     L7687:                          ; not Decimal or Hex
+     321/    7687 : 7E 75 94            NXTCMDV:jmp	NXTCMD          ; (L 7594)
+     322/    768A :                     ;
+     323/    768A :                     CRLFV:  
+     324/    768A :                     L768A:
+     325/    768A :                     	;; 
+     326/    768A :                             ;; BADDR - Build Address
+     327/    768A :                             ;; 
+     328/    768A : 8D 0C               BADDR:  bsr	BYTE            ; Get the Hi byte (L 7698 - L 768A:)
+     329/    768C : B7 77 09            	staa	BADDRH          ; Save the Hi byte (X 7709)
+     330/    768F : 8D 07               	bsr	BYTE            ; (L 7698)
+     331/    7691 : B7 77 0A            	staa	BADDRL          ; SAve the Lo byte (X 770A)
+     332/    7694 : FE 77 09            	ldx	BADDRH          ; (X 7709)
+     333/    7697 : 39                  	rts
+     334/    7698 :                     ;
+     335/    7698 :                     L7698:
+     336/    7698 : 8D 1E               BYTE:   bsr	INHEX           ; (L 76B8)
+     337/    769A :                     L769A:
+     338/    769A : 48                  BYTE1:  asla
+     339/    769B : 48                  	asla
+     340/    769C : 48                  	asla
+     341/    769D : 48                  	asla
+     342/    769E : 16                  	tab
+     343/    769F : 8D 17               	bsr	INHEX           ; (L 76B8)
+     344/    76A1 : 1B                  	aba
+     345/    76A2 : 16                  	tab
+     346/    76A3 : 39                  	rts
+     347/    76A4 :                     ;
+     348/    76A4 :                     ; * OUTHL AND R - OUTPUT ONE HEX DIGIT
+     349/    76A4 :                     L76A4:
+     350/    76A4 : 44                  OUTHL:  lsra                    ;* OUTPUT LEFT DIGIT ENTRY
+     351/    76A5 : 44                  	lsra
+     352/    76A6 : 44                  	lsra
+     353/    76A7 : 44                  	lsra
+     354/    76A8 :                     L76A8:
+     355/    76A8 : 84 0F               OUTHR:  anda	#$0F            ;* OUTPUT HEX RIGHT DIGIT ENTRY
+     356/    76AA : 8B 30               	adda	#$30            ;*
+     357/    76AC : 81 39               	cmpa	#$39
+     358/    76AE : 23 02               	bls	OUEXIT          ;* (L 76B2)
+     359/    76B0 : 8B 07               	adda	#$07
+     360/    76B2 :                     ;
+     361/    76B2 : 7E 77 69            OUEXIT: jmp	OUTEEE          ; (L 7769 - L 76B2:)
+     362/    76B5 :                             ;; 
+     363/    76B5 :                     L76B5:
+     364/    76B5 : 7E 77 33            INEEEV:	jmp	INEEE           ; (L 7733)
+     365/    76B8 :                     ;
+     366/    76B8 :                             ;;
+     367/    76B8 :                             ;;
+     368/    76B8 :                             ;; 
+     369/    76B8 :                     L76B8:
+     370/    76B8 :                     	;; 
+     371/    76B8 :                             ;; Input
+     372/    76B8 :                             ;; 
+     373/    76B8 : 8D FB               INHEX:  bsr	INEEEV          ; (L 76B5)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 16 - 12/12/2022 15:11:20
+
+
+     374/    76BA : 80 30               CVTHEX:	suba	#$30            ; A - $30 (0 - 9 $30 - $39, A - F $41 - $46) (L 76BA:) @FIXME
+     375/    76BC : 2B C9               	bmi	NXTCMDV         ; Less than '0' (L 7687) @FIXME
+     376/    76BE : 81 09               	cmpa	#$09
+     377/    76C0 : 2F 0A               	ble	INEXIT          ; <= '9' (Decimal - L 76CC)
+     378/    76C2 : 81 11               	cmpa	#$11
+     379/    76C4 : 2B C1               	bmi	NXTCMDV         ; < 'A' (not Decimal or Hex - L 7687)
+     380/    76C6 : 81 16               	cmpa	#$16
+     381/    76C8 : 2E BD               	bgt	NXTCMDV         ; > 'F' (not Decimal or Hex - L 7687)
+     382/    76CA : 80 07               	suba	#$07
+     383/    76CC : 39                  INEXIT: rts                     ; 0-9 A-F -> $00 - $0F (L 76CC:)
+     384/    76CD :                     ;
+     385/    76CD :                             ;;
+     386/    76CD :                             ;; OUT2H  - Output Reg X as a 2 char Hex value
+     387/    76CD :                             ;; 
+     388/    76CD : A6 00               OUT2H:	ldaa	$00,x           ; (L 76CD:)
+     389/    76CF : 8D D3               	bsr	L76A4
+     390/    76D1 : A6 00               	ldaa	$00,x
+     391/    76D3 : 08                  	inx
+     392/    76D4 : 20 D2               	bra	OUTHR           ; (L 76A8)
+     393/    76D6 :                     ;
+     394/    76D6 :                     ; -[ Print Bytes to Hex ]-------------------------------------------------------
+     395/    76D6 :                     ;
+     396/    76D6 :                             ;;
+     397/    76D6 :                             ;; OUT4HS - Output a 4byte hex string
+     398/    76D6 :                             ;; 
+     399/    76D6 : 8D F5               OUT4HS:	bsr	OUT2H           ; (L 76CD - L 76D6:)
+     400/    76D8 :                     ;
+     401/    76D8 :                             ;;
+     402/    76D8 :                             ;; OUT2HS - Output a 2byte hex string
+     403/    76D8 :                             ;; 
+     404/    76D8 : 8D F3               OUT2HS:	bsr	OUT2H           ; (L 76CD - L 76D8:)
+     405/    76DA :                             ;;
+     406/    76DA :                             ;; OUTS - Output a space
+     407/    76DA :                             ;; 
+     408/    76DA : 86 20               OUTS:	ldaa	#SPACE          ; (L 76DA:)
+     409/    76DC : 20 D4               	bra	OUEXIT          ; (L 76B2 -> jmp OUTEEE (L 7769 ))
+     410/    76DE :                     ;
+     411/    76DE :                     ; -[ Jump ]---------------------------------------------------------------------
+     412/    76DE :                     ;
+     413/    76DE :                             ;;
+     414/    76DE :                             ;; JU - JUMP to user program
+     415/    76DE :                             ;; Reg X contains jump address ?
+     416/    76DE :                             ;; 
+     417/    76DE : 8D AA               JUINST: bsr	BADDR           ; Get the address and put it in X (L 768A)
+     418/    76E0 : 8E 7F FF            	lds	#USTACK         ; $7FFF
+     419/    76E3 : AD 00               	jsr	$00,x		; JUMP to the User program (INFO: index jump)
+     420/    76E5 : 7E 75 6A            	jmp	WARMST          ; (L 756A)
+     421/    76E8 :                     ; ------------------------------------------------------------------------------
+     422/    76E8 :                     ; -[ Storage: 76E8 - 7716 = 2E ]------------------------------------------------
+     423/    76E8 :                     ; ------------------------------------------------------------------------------
+     424/    76E8 : (MACRO)             L76E8:  db	$00
+     425/    76E9 : (MACRO)             X76E9:  db	$00, $00
+     426/    76EB : (MACRO)             X76EB:	db	$00
+     427/    76EC :                     ;
+     428/    76EC :                     X76EC:	                        ; ror	X4400           ; 76 44 00
+     429/    76EC : (MACRO)             BRTMP:  rmb     1
+     430/    76ED : (MACRO)             X76ED:  rmb     1
+     431/    76EE : (MACRO)             X76EE:  rmb     1
+     432/    76EF :                             ;;
+     433/    76EF :                             ;; CP JMP table from FF0C to here
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 17 - 12/12/2022 15:11:20
+
+
+     434/    76EF :                             ;; 
+     435/    76EF :                             ;; 4 Addrs (12 bytes) Format: <addr> <op> (2Bytes + 1Byte)
+     436/    76EF :                             ;; 
+     437/    76EF : (MACRO)             BKTAB:  rmb     3               ; Addr op (L 76EF:)
+     438/    76F2 : (MACRO)                     rmb     3
+     439/    76F5 : (MACRO)                     rmb     3
+     440/    76F8 : (MACRO)                     rmb     3
+     441/    76FB :                     ;
+     442/    76FB : (MACRO)             X76FB:	db	$00
+     443/    76FC : (MACRO)             X76FC:	db	$00
+     444/    76FD : (MACRO)             X76FD:	db	$00, $00
+     445/    76FF : (MACRO)             X76FF:	db	$00, $00        ; On init this gets clr'd (2Byte)
+     446/    7701 : (MACRO)             X7701:	db	$00             ; On init this gets clr'd (1Byte)
+     447/    7702 : (MACRO)             X7702:	db	$75, $7B        ; Humbug+ str addr
+     448/    7704 :                     ;
+     449/    7704 :                             ;; FROMTO ADDR?
+     450/    7704 : (MACRO)             X7704:	db      $0F             ; sei
+     451/    7705 :                     ;
+     452/    7705 :                     X7705:
+     453/    7705 :                             ;; FROMTO ADDR?
+     454/    7705 : (MACRO)             BEGA:   db	$75             ; Start Address
+     455/    7706 : (MACRO)             X7706:	db	$00
+     456/    7707 :                             ;;
+     457/    7707 :                             ;; hinzvc b  a   x    pc   sp
+     458/    7707 :                             ;; 111111 01 7F FB00 0000 0006
+     459/    7707 :                     	;; 
+     460/    7707 :                     USRSTK: ;; FROMTO ADDR?
+     461/    7707 :                     X7707:
+     462/    7707 : (MACRO)             ENDA:   db      $7F             ; End Address
+     463/    7708 : (MACRO)             X7708:  db      $70
+     464/    7709 :                             ;;
+     465/    7709 :                             ;; BADDR - Address of User program
+     466/    7709 :                             ;; 
+     467/    7709 :                     X7709:
+     468/    7709 : (MACRO)             BADDRH: db      $75             ; User by BADDR for 1st Byte of addr
+     469/    770A :                     X770A:
+     470/    770A : (MACRO)             BADDRL: db	$00             ; Used by BADDR for 2nd Byte of addr
+     471/    770B :                     ;
+     472/    770B : (MACRO)             X770B:	rmb     1               ; 770B - 7710
+     473/    770C : (MACRO)             X770C:	rmb     1
+     474/    770D : (MACRO)             X770D:  rmb     2
+     475/    770F :                     X770F:
+     476/    770F : (MACRO)             SP:     rmb     2
+     477/    7711 :                             ;; 
+     478/    7711 :                             ;;
+     479/    7711 :                             ;; 
+     480/    7711 : =>UNDEFINED                 IFDEF   UNTRUE
+     481/    7711 :                     X7711:	stx	XFF8D
+     482/    7711 :                     ;
+     483/    7711 :                     	byt	$02
+     484/    7711 :                     ;
+     485/    7711 :                     	bra	L7724
+     486/    7711 : =>TRUE              	ELSEIF
+     487/    7711 :                     X7711:
+     488/    7711 : (MACRO)             TMPSTR: rmb     1               ;* Temp storage?
+     489/    7712 : (MACRO)             X7712:  rmb     5
+     490/    7717 : [480]                       ENDIF
+     491/    7717 :                     ; ------------------------------------------------------------------------------
+     492/    7717 :                     ; ------------------------------------------------------------------------------
+     493/    7717 :                     OUTCH:
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 18 - 12/12/2022 15:11:20
+
+
+     494/    7717 :                     CRLF:
+     495/    7717 : 3C                  L7717:	pshx
+     496/    7718 : CE 77 1F            	ldx	#CRLFST         ; ($771F)
+     497/    771B : 8D 07               	bsr	L7724
+     498/    771D : 38                  	pulx
+     499/    771E : 39                  	rts
+     500/    771F :                     ;
+     501/    771F :                     L771F:
+     502/    771F : (MACRO)             CRLFST: fcc     CR, LF, NUL, NUL, EOT
+     503/    7724 :                             ;;
+     504/    7724 :                             ;;* PDATA - PRINT DATA STRING
+     505/    7724 :                             ;;
+     506/    7724 :                     L7724:
+     507/    7724 : 36                  PDATA:  psha                    ; (L 7724:)
+     508/    7725 : A6 00               NXTCHR: ldaa	$00,x           ; Get Char (L 7725:)
+     509/    7727 : 81 04               	cmpa	#$04            ; EOT, End?
+     510/    7729 : 27 06               	beq	PDEXIT          ; (L 7731)
+     511/    772B : BD 77 69            	jsr	OUTEEE          ; Humbug says OUTEEE (L 7769)
+     512/    772E : 08                  	inx                     ; Point to the Next Char
+     513/    772F : 20 F4               	bra	NXTCHR          ; Loop (L 7725)
+     514/    7731 :                     ;
+     515/    7731 :                     L7731:
+     516/    7731 : 32                  PDEXIT: pula                    ; (L 7731:)
+     517/    7732 : 39                  	rts
+     518/    7733 :                     ;
+     519/    7733 :                     ;* INEEE - CHARACTER INPUT ROUTINE
+     520/    7733 :                     ;* This looks like INEEE
+     521/    7733 :                     ;
+     522/    7733 :                     L7733:
+     523/    7733 : 3C                  INEEE:  pshx                    ; Next
+     524/    7734 : 37                  	pshb
+     525/    7735 :                     L7735:
+     526/    7735 : 8D 2C               INRPT:  bsr	INCH7           ; Get input char (L 7763)
+     527/    7737 : 81 13               	cmpa	#CTRLS          ; Is it ^S?
+     528/    7739 : 27 05               	beq	GOTCS           ; Yes (L 7740)
+     529/    773B : 8D 2C               	bsr	OUTEEE          ; Echo (L 7769)
+     530/    773D : 33                  	pulb
+     531/    773E : 38                  	pulx
+     532/    773F : 39                  	rts                     ; And return
+     533/    7740 :                     ;
+     534/    7740 :                             ;; Control S Detected, Get and Interpret command
+     535/    7740 :                     L7740:
+     536/    7740 : 8D 02               GOTCS:  bsr	GETCMD          ; Do command (L 7744)
+     537/    7742 : 20 F1               	bra	INRPT           ; Next (L 7735)
+     538/    7744 :                     ;
+     539/    7744 :                     L7744:
+     540/    7744 : 8D 1D               GETCMD: bsr	INCH7           ; (L 7763)
+     541/    7746 : 81 4F               	cmpa	#$4F            ; Upper case Oh 'O'
+     542/    7748 : 26 04               	bne	NOTO            ; (L 774E) Not Oh?
+     543/    774A : 73 76 FF            	com	X76FF
+     544/    774D : 39                  	rts
+     545/    774E :                     ;
+     546/    774E :                     L774E:
+     547/    774E : 81 50               NOTO:   cmpa	#$50            ; P
+     548/    7750 : 26 09               	bne	NOTP            ; Not P? (L 775B)
+     549/    7752 : 73 77 01            	com	X7701
+     550/    7755 : 86 0F               	ldaa	#$0F            ; ^O Ctrl-Oh
+     551/    7757 : B7 77 04            	staa	X7704
+     552/    775A : 39                  	rts
+     553/    775B :                     ;
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 19 - 12/12/2022 15:11:20
+
+
+     554/    775B :                     L775B:
+     555/    775B : 81 03               NOTP:   cmpa	#$03            ; CTRL-C
+     556/    775D : 27 01               	beq	GEEXIT          ; (L 7760)
+     557/    775F : 39                  	rts
+     558/    7760 :                     L7760:
+     559/    7760 : 7E 75 6A            GEEXIT: jmp	WARMST          ; (L 756A)
+     560/    7763 :                     ;
+     561/    7763 :                             ;; Console In (Keyboard)
+     562/    7763 :                             ;; Read one byte from the current device and return it in ACCA
+     563/    7763 :                     INCH7:  ;                        ; Was INEEE (I was wrong)
+     564/    7763 : BD F8 65            L7763:	jsr	CNSLIN           ; Wasn't in humbug.inc (LF865)
+     565/    7766 : 84 7F               	anda	#$7F             ; Knock off the hi-bit
+     566/    7768 : 39                  	rts
+     567/    7769 :                     
+     568/    7769 :                             ;; * PDATA - PRINT DATA STRING
+     569/    7769 :                             ;; * INEEE - CHARACTER INPUT ROUTINE
+     570/    7769 :                     
+     571/    7769 :                     L7769:
+     572/    7769 : 3C                  OUTEEE: pshx                    ;* pshs x,b,a Save Registers L 7769 (Not PDATA)
+     573/    776A : 37                  	pshb
+     574/    776B : 36                  	psha
+     575/    776C :                             ;;
+     576/    776C :                             ;; Humbug09 doesn't have this (I think that's okay)
+     577/    776C :                             ;; 
+     578/    776C : BD F8 83            	jsr	KEYIN           ; GET INPUT CHARACTER (LF883 - From humbug.inc)
+     579/    776F : 27 09               	beq	NOTEST          ; (L 777A)
+     580/    7771 : 84 7F               	anda	#$7F
+     581/    7773 : 81 13               	cmpa	#$13            ; IS IT CONTROL-S?
+     582/    7775 : 26 03               	bne	NOTEST          ; YES (L 777A)
+     583/    7777 : BD 77 44            	jsr	GETCMD          ; (L 7744)
+     584/    777A :                     	;;
+     585/    777A :                             ;; Control-S handler
+     586/    777A :                             ;; 
+     587/    777A :                     L777A:
+     588/    777A : 32                  NOTEST: pula                    ; FINISHED TESTING FOR COMMAND
+     589/    777B : 36                  	psha                    ; SAVE AGAIN
+     590/    777C :                             ;;
+     591/    777C :                             ;;  Humbug09 checks for pause here, I think we have that above
+     592/    777C :                             ;; 
+     593/    777C : F6 77 01            	ldab	X7701
+     594/    777F : 27 20               	beq	L77A1
+     595/    7781 : 81 0C               	cmpa	#$0C            ; ^L
+     596/    7783 : 26 07               	bne	L778C
+     597/    7785 : C6 0F               	ldab	#$0F            ; ^O
+     598/    7787 : F7 77 04            	stab	X7704
+     599/    778A : 20 15               	bra	L77A1
+     600/    778C :                     ;
+     601/    778C : 81 0D               L778C:	cmpa	#$0D            ; CR
+     602/    778E : 26 11               	bne	L77A1
+     603/    7790 : 7A 77 04            	dec	X7704
+     604/    7793 : 26 0C               	bne	L77A1
+     605/    7795 : 86 0F               	ldaa	#$0F            ; ^O
+     606/    7797 : B7 77 04            	staa	X7704
+     607/    779A : BD 77 63            	jsr	INCH7           ; (L 7763)
+     608/    779D : 81 03               	cmpa	#$03            ; ^C
+     609/    779F : 27 BF               	beq	L7760
+     610/    77A1 : 32                  L77A1:	pula
+     611/    77A2 : 8D 0A               	bsr	L77AE
+     612/    77A4 : F6 76 FF            	ldab	X76FF
+     613/    77A7 : 27 02               	beq	L77AB
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 20 - 12/12/2022 15:11:20
+
+
+     614/    77A9 : 8D 22               	bsr	L77CD
+     615/    77AB : 33                  L77AB:	pulb
+     616/    77AC : 38                  	pulx
+     617/    77AD : 39                  	rts
+     618/    77AE :                     ;
+     619/    77AE :                     INCH8:  
+     620/    77AE : 3C                  L77AE:	pshx
+     621/    77AF : 36                  	psha
+     622/    77B0 : 81 0C               	cmpa	#$0C            ; ^L FF
+     623/    77B2 : 26 13               	bne	L77C7
+     624/    77B4 : CE 40 00            	ldx	#$4000
+     625/    77B7 : FF 42 80            	stx	$4280
+     626/    77BA : 86 60               	ldaa	#$60            ; ` (backtick)
+     627/    77BC : A7 00               L77BC:	staa	$00,x
+     628/    77BE : 08                  	inx
+     629/    77BF : 8C 42 00            	cpx	#$4200
+     630/    77C2 : 26 F8               	bne	L77BC
+     631/    77C4 : 32                  	pula
+     632/    77C5 : 38                  	pulx
+     633/    77C6 : 39                  	rts
+     634/    77C7 :                     ;
+     635/    77C7 :                     L77C7:
+     636/    77C7 : BD F9 C6            	jsr	PUTCHR          ; LF9C6 - from humbug.inc
+     637/    77CA : 32                  	pula
+     638/    77CB : 38                  	pulx
+     639/    77CC : 39                  	rts
+     640/    77CD :                     ;
+     641/    77CD :                     L77CD:
+     642/    77CD :                             ;; * Send character in ACCA to serial port printer
+     643/    77CD : 3C                  	pshx
+     644/    77CE : 37                  	pshb
+     645/    77CF : 36                  	psha
+     646/    77D0 : 7E F9 D0            	jmp	PRTSER          ; (L F9D0)
+     647/    77D3 :                     ;
+     648/    77D3 : 52 41 54 45 3F 20   L77D3:  byt     "RATE? ", $04
+                    04 
+     649/    77DA :                     ;
+     650/    77DA :                     L77DA:
+     651/    77DA : CE 77 D3            BAINST: ldx	#$77D3
+     652/    77DD : BD 77 24            	jsr	L7724
+     653/    77E0 : BD 76 8A            	jsr	L768A
+     654/    77E3 : 3C                  	pshx
+     655/    77E4 : 32                  	pula
+     656/    77E5 : 33                  	pulb
+     657/    77E6 : CE 78 01            	ldx	#$7801
+     658/    77E9 :                     L77E9:
+     659/    77E9 : A1 00               	cmpa	$00,x
+     660/    77EB : 26 06               	bne	L77F3
+     661/    77ED : EE 01               	ldx	$01,x
+     662/    77EF : FF 42 23            	stx	LPTBTD          ; X4223 - Printer baud rate delay (118)
+     663/    77F2 : 39                  	rts
+     664/    77F3 :                     ;
+     665/    77F3 :                     L77F3:
+     666/    77F3 : 08                  	inx
+     667/    77F4 : 08                  	inx
+     668/    77F5 : 08                  	inx
+     669/    77F6 : 6D 00               	tst	$00,x
+     670/    77F8 : 26 EF               	bne	L77E9
+     671/    77FA : CE 7C 01            	ldx	#$7C01
+     672/    77FD : BD 77 24            	jsr	L7724
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 21 - 12/12/2022 15:11:20
+
+
+     673/    7800 : 39                  	rts
+     674/    7801 :                     ;
+     675/    7801 : 01                  	nop
+     676/    7802 :                     ;
+     677/    7802 : 02                  	byt	$02
+     678/    7803 :                     ;
+     679/    7803 : AC 03               	cpx	$03,x
+     680/    7805 :                     ;
+     681/    7805 : 00                  	byt	$00
+     682/    7806 :                     ;
+     683/    7806 : F5 06 00            	bitb	$0600
+     684/    7809 : 12 00               	adr	$1200
+     685/    780B : 3B                  	rti
+     686/    780C :                     ;
+     687/    780C : 24 00               	bcc	L780F
+     688/    780E :                     L780F:
+     689/    780E : 1B                  	aba
+     690/    780F : 48                  	asla
+     691/    7810 :                     ;
+     692/    7810 : 00                  	byt	$00
+     693/    7811 :                     ;
+     694/    7811 : 0B                  	sev
+     695/    7812 : 96 00               	ldaa	$0000
+     696/    7814 :                     ;
+     697/    7814 : 03 00               	byt	$03, $00
+     698/    7816 :                     ;
+     699/    7816 :                     	;; AT - Analyze Tape (???)
+     700/    7816 :                     L7817:  
+     701/    7816 : 86 0C               ATINST: ldaa	#CLS
+     702/    7818 : BD 77 69            	jsr	OUTEEE          ; (L 7769)
+     703/    781B :                             ;;
+     704/    781B :                             ;; Video $4000 - $41FF = 512 or 16x32 (Lines * Columns)
+     705/    781B :                             ;; $20/line
+     706/    781B :                             ;; 16x32 - $10x$20
+     707/    781B :                             ;;
+     708/    781B :                             ;; This writes directly to the screen
+     709/    781B :                             ;; 
+     710/    781B : CE 41 20            	ldx	#$4120          ; Video mem? ($ 4120) - Line 10 Col 1
+     711/    781E : FF 42 80            	stx	CURPOS          ; Cursor Position (CRSPTR $ 4280)
+     712/    7821 : BD FF 4E            	jsr	SYNLDR          ; LFF4E - from humbug.inc
+     713/    7824 : CE 40 20            	ldx	#$4020          ; Video mem? ($ 4020) - Line  2 Col 1 X
+     714/    7827 : BD FE B0            	jsr	LFEB0           ; LFE80 - rts so it comes right back (???)
+     715/    782A : 27 1F               	beq	L784E
+     716/    782C :                     L782D:
+     717/    782C : CE 7E A1            	ldx	#$7EA1
+     718/    782F : BD 77 24            	jsr	L7724
+     719/    7832 : 7E 78 C0            	jmp	L78C3
+     720/    7835 :                     ;
+     721/    7835 :                     L7836:
+     722/    7835 : (MACRO)             BASST:  fcc     "BASIC: ", $04
+     723/    783D :                     L783E:
+     724/    783D : (MACRO)             DATST:  fcc     "DATA:  ", $04
+     725/    7845 :                     L7846:
+     726/    7845 : (MACRO)             BINST:  fcc     "BIN: ", $04
+     727/    784B :                     L784E:
+     728/    784B : F6 40 28            	ldab	$4028
+     729/    784E : 58                  	aslb
+     730/    784F :                     L7852:
+     731/    784F : 58                  	aslb
+     732/    7850 : 58                  	aslb
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 22 - 12/12/2022 15:11:20
+
+
+     733/    7851 : CE 78 36            	ldx	#$7836
+     734/    7854 : 3A                  	abx
+     735/    7855 : BD 77 24            	jsr	PDATA           ; (L 7724)
+     736/    7858 : 86 04               	ldaa	#$04
+     737/    785A : B7 40 28            	staa	$4028
+     738/    785D : CE 40 20            	ldx	#$4020
+     739/    7860 : BD 77 24            	jsr	PDATA           ; (L 7724)
+     740/    7863 : BD 77 17            	jsr	CRLF            ; (L 7717)
+     741/    7866 : CE 40 2D            	ldx	#$402D
+     742/    7869 :                     L786C:
+     743/    7869 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+     744/    786C : FE 40 2B            	ldx	$402B
+     745/    786F : FF 77 05            	stx	X7705
+     746/    7872 : FE 40 2D            	ldx	$402D
+     747/    7875 : 09                  	dex
+     748/    7876 : FF 77 07            	stx	USRSTK          ; X7707
+     749/    7879 : 86 2C               	ldaa	#$2C
+     750/    787B : BD 77 69            	jsr	L7769
+     751/    787E : B6 40 2A            	ldaa	$402A
+     752/    7881 : B7 76 EC            	staa	BRTMP           ; (X 76EC)
+     753/    7884 : BD FF 4E            	jsr	SYNLDR          ; LFF4E
+     754/    7887 :                     L788A:
+     755/    7887 : CE 40 20            	ldx	#$4020
+     756/    788A : FF 42 6C            	stx	LDSIZE          ; LOAD address for ML file; SIZE of Basic/Array file ($ 426C)
+     757/    788D : BD FE B6            	jsr	LFEB6           ;* Load any block from cassette into RAM
+     758/    7890 : 26 9A               	bne	L782D
+     759/    7892 : 7D 42 75            	tst	$4275
+     760/    7895 : 2B 0D               	bmi	L78A7
+     761/    7897 : FC 77 07            	ldd	USRSTK          ; X7707
+     762/    789A : FB 42 76            	addb	$4276
+     763/    789D : 89 00               	adca	#$00
+     764/    789F : FD 77 07            	std	USRSTK          ; X7707
+     765/    78A2 : 20 E3               	bra	L788A
+     766/    78A4 :                     ;
+     767/    78A4 :                     L78A7:
+     768/    78A4 : CE 77 07            	ldx	#USRSTK         ; $7707
+     769/    78A7 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+     770/    78AA : 86 2C               	ldaa	#$2C
+     771/    78AC : BD 77 69            	jsr	L7769
+     772/    78AF : CE 77 05            	ldx	#$7705
+     773/    78B2 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+     774/    78B5 : 7D 76 EC            	tst	BRTMP           ; (X 76EC)
+     775/    78B8 : 27 06               	beq	L78C3
+     776/    78BA : CE 78 C6            	ldx	#$78C6
+     777/    78BD : BD 77 24            	jsr	L7724
+     778/    78C0 :                     L78C3:
+     779/    78C0 : 7E 75 94            	jmp	L7594
+     780/    78C3 :                     L78C6:
+     781/    78C3 : (MACRO)             ASCST:  fcc     "ASCII", $04
+     782/    78C9 :                             ;;
+     783/    78C9 :                             ;;  SA - Save to cassette
+     784/    78C9 :                     L78CC:
+     785/    78C9 : BD 79 54            SAINST: jsr	FROMTO          ; (L7957)
+     786/    78CC : CE 79 2D            	ldx	#$792D
+     787/    78CF : BD 77 24            	jsr	L7724
+     788/    78D2 : BD 76 8A            	jsr	L768A
+     789/    78D5 : FF 42 6A            	stx	$426A
+     790/    78D8 :                     L78DB:
+     791/    78D8 : CE 79 3E            	ldx	#$793E
+     792/    78DB : BD 77 24            	jsr	L7724
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 23 - 12/12/2022 15:11:20
+
+
+     793/    78DE : CE 42 57            	ldx	#CFNSTR         ; $4257
+     794/    78E1 : C6 08               	ldab	#$08
+     795/    78E3 :                     L78E6:
+     796/    78E3 : BD 77 33            	jsr	INEEE           ; (L 7733)
+     797/    78E6 : 81 08               	cmpa	#$08
+     798/    78E8 : 26 08               	bne	L78F5
+     799/    78EA : C1 08               	cmpb	#$08
+     800/    78EC : 27 F5               	beq	L78E6
+     801/    78EE : 09                  	dex
+     802/    78EF : 5C                  	incb
+     803/    78F0 : 20 F1               	bra	L78E6
+     804/    78F2 :                     ;
+     805/    78F2 :                     L78F5:
+     806/    78F2 : 81 0D               	cmpa	#$0D
+     807/    78F4 : 27 10               	beq	L7909
+     808/    78F6 : 81 30               	cmpa	#$30
+     809/    78F8 : 25 DE               	bcs	L78DB
+     810/    78FA : 81 5A               	cmpa	#$5A
+     811/    78FC : 2E DA               	bgt	L78DB
+     812/    78FE : A7 00               	staa	$00,x
+     813/    7900 : 08                  	inx
+     814/    7901 : 5A                  	decb
+     815/    7902 : 26 DF               	bne	L78E6
+     816/    7904 : 20 08               	bra	L7911
+     817/    7906 :                     ;
+     818/    7906 :                     L7909:
+     819/    7906 : 86 20               	ldaa	#$20            ; Space?
+     820/    7908 :                     L790B:
+     821/    7908 : A7 00               	staa	$00,x
+     822/    790A : 08                  	inx
+     823/    790B : 5A                  	decb
+     824/    790C : 26 FA               	bne	L790B
+     825/    790E :                     L7911:
+     826/    790E : FE 77 05            	ldx	X7705
+     827/    7911 : FF 42 6F            	stx	CASBEG          ; X426F
+     828/    7914 : FF 42 6C            	stx	LDSIZE          ; X426C
+     829/    7917 : FE 77 07            	ldx	USRSTK          ; X7707
+     830/    791A : 08                  	inx
+     831/    791B : FF 42 71            	stx	CASEND          ; X4271
+     832/    791E : 86 02               	ldaa	#$02
+     833/    7920 : B7 42 67            	staa	CFTYPE          ; X4267
+     834/    7923 :                             ;;* Evaluate the optional filename argument for CSAVE then write the Name Block to cassette.
+     835/    7923 :                             ;;* Also writes 1/2 second of silence and the leader for the first data block.
+     836/    7923 :                             ;;* The ASCII and Gaps flags in the Name Block are both cleared.
+     837/    7923 :                             ;;* Other fields in the Name Block must be setup before calling.
+     838/    7923 : BD FC 8E            	jsr	LFC8E           ; parse filename argument if given, evaluate filename and write Name Block
+     839/    7926 : BD FC 5D            	jsr	LFC5D           ; point X to first data byte then set start address for block write
+     840/    7929 : 39                  	rts
+     841/    792A :                     ;
+     842/    792A : (MACRO)             L792D:  fcc     $0D, $0A, "  START"
+     843/    7933 :                     L7936:
+     844/    7933 : (MACRO)             ADDRSTR:fcc     " ADDR: ", $04
+     845/    793B :                     ;
+     846/    793B : (MACRO)             L793E:  fcc     $0D, $0A, "  NAME: ", $04
+     847/    7946 : (MACRO)             L7949:  fcc     "WITH? ", $04
+     848/    794D : (MACRO)             L7950:  fcc     "WHAT? ", $04
+     849/    7954 :                     L7957:
+     850/    7954 : CE 79 9A            FROMTO: ldx	#FROMSTR        ; Print From ($799D) @FIXME
+     851/    7957 : BD 77 24            	jsr	PDATA           ; (L 7724)
+     852/    795A : BD 77 33            	jsr	INEEE           ; (L 7733)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 24 - 12/12/2022 15:11:20
+
+
+     853/    795D : 81 0A               	cmpa	#CR             ; $0D
+     854/    795F :                     L7962:
+     855/    795F : 26 03               	bne	L7967
+     856/    7961 : 7E 77 17            	jmp	CRLF            ; (L 7717)
+     857/    7964 :                     ;
+     858/    7964 :                             ;;
+     859/    7964 :                             ;; Convert a hex string to bin
+     860/    7964 :                             ;; $30 - $46 (0 - F)
+     861/    7964 :                             ;; to
+     862/    7964 :                             ;; $00 - $0F)
+     863/    7964 :                             ;; 
+     864/    7964 : 80 30               L7967:   suba	#$30
+     865/    7966 : 2B 2F               	bmi	NXTHEX           ; Not a Valid hex (less than '0' - L 799A)L799A
+     866/    7968 : 81 09               	cmpa	#$09
+     867/    796A : 2F 0A               	ble	L7979           ; 0 >= A >= 9 (0 - 9)
+     868/    796C : 81 11               	cmpa	#$11            ; 'A' - $30
+     869/    796E : 2B 27               	bmi	L799A
+     870/    7970 : 81 16               	cmpa	#$16            ; 'F' - $30
+     871/    7972 : 2E 23               	bgt	L799A
+     872/    7974 : 80 07               	suba	#$07
+     873/    7976 :                     L7979:
+     874/    7976 :                     DIGIT:
+     875/    7976 : 48                  GOTONE: asla                    ; @FIXME
+     876/    7977 : 48                  	asla
+     877/    7978 : 48                  	asla
+     878/    7979 : 48                  	asla
+     879/    797A : 16                  	tab
+     880/    797B : BD 76 B8            	jsr	INHEX           ; (L 76B8)
+     881/    797E : 1B                  	aba
+     882/    797F : B7 77 05            	staa	X7705
+     883/    7982 : BD 76 98            	jsr	L7698
+     884/    7985 : B7 77 06            	staa	X7706
+     885/    7988 : CE 79 A1            	ldx	#TOSTR          ; Print TO ($79A4)
+     886/    798B : BD 77 24            	jsr	PDATA           ; (L 7724)
+     887/    798E : BD 76 B8            	jsr	INHEX           ; (L 768A)
+     888/    7991 : FF 77 07            	stx	USRSTK          ; (X 7707)
+     889/    7994 : 7E 76 DA            	jmp	OUTS            ; (L 76DA)
+     890/    7997 :                     ;
+     891/    7997 :                     L799A:
+     892/    7997 : 31                  NXTHEX: ins                     ; db      "1"
+     893/    7998 : 31                          ins                     ; db      "1"
+     894/    7999 : 39                          rts                     ; db      "9"
+     895/    799A :                     ;
+     896/    799A :                     L799D:
+     897/    799A : (MACRO)             FROMSTR:fcc     " FROM ", $04   ; L799D:
+     898/    79A1 :                     L79A4:
+     899/    79A1 : (MACRO)             TOSTR:  fcc     " TO ", $04     ;L79A4:
+     900/    79A6 :                     ;
+     901/    79A6 :                     L79A9:
+     902/    79A6 : CE 75 00            EXINST: ldx	#MAIN           ; $7500 COLDST
+     903/    79A9 : FF 42 1F            	stx	EXECJP          ; X421F
+     904/    79AC : FE F7 2E            	ldx	RESET           ; XFFFE
+     905/    79AF : 6E 00               	jmp	$00,x           ; INFO: index jump (EXECJP)
+     906/    79B1 :                     ;
+     907/    79B1 :                             ;; DE
+     908/    79B1 :                     L79B4:  
+     909/    79B1 : BD 79 54            DEINST: jsr	FROMTO          ; (L 7957)
+     910/    79B4 : FE 77 05            	ldx	X7705
+     911/    79B7 : FF 77 11            	stx	X7711
+     912/    79BA :                     L79BD:
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 25 - 12/12/2022 15:11:20
+
+
+     913/    79BA : 8D 0F               	bsr	L79CE
+     914/    79BC : B6 77 07            	ldaa	USRSTK          ; X7707
+     915/    79BF : F6 77 08            	ldab	X7708
+     916/    79C2 : F0 77 12            	subb	X7712
+     917/    79C5 : B2 77 11            	sbca	X7711
+     918/    79C8 : 24 F0               	bcc	L79BD
+     919/    79CA : 39                  	rts
+     920/    79CB :                     ;
+     921/    79CB :                     L79CE:
+     922/    79CB : BD 77 17            	jsr	L7717
+     923/    79CE : CE 77 11            	ldx	#$7711
+     924/    79D1 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+     925/    79D4 : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+     926/    79D7 : FE 77 11            	ldx	X7711
+     927/    79DA : A6 00               	ldaa	$00,x
+     928/    79DC : B7 76 FB            	staa	X76FB
+     929/    79DF : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+     930/    79E2 :                     L79E5:
+     931/    79E2 : FF 77 11            	stx	X7711
+     932/    79E5 : 5F                  	clrb
+     933/    79E6 : B6 76 FB            	ldaa	X76FB
+     934/    79E9 : 84 BF               	anda	#$BF
+     935/    79EB : 81 83               	cmpa	#$83            ;
+     936/    79ED : 27 19               	beq	L7A0B
+     937/    79EF : 84 FD               	anda	#$FD
+     938/    79F1 : 81 8C               	cmpa	#$8C            ;
+     939/    79F3 : 27 13               	beq	L7A0B
+     940/    79F5 : B6 76 FB            	ldaa	X76FB
+     941/    79F8 : 84 F0               	anda	#$F0
+     942/    79FA : 81 20               	cmpa	#$20
+     943/    79FC : 27 0B               	beq	L7A0C
+     944/    79FE : 81 60               	cmpa	#$60
+     945/    7A00 : 25 08               	bcs	L7A0D
+     946/    7A02 : 84 30               	anda	#$30
+     947/    7A04 : 81 30               	cmpa	#$30
+     948/    7A06 : 26 01               	bne	L7A0C
+     949/    7A08 :                     L7A0B:
+     950/    7A08 : 5C                  	incb
+     951/    7A09 :                     L7A0C:
+     952/    7A09 : 5C                  	incb
+     953/    7A0A :                     L7A0D:
+     954/    7A0A : F7 76 FC            	stab	X76FC
+     955/    7A0D : 27 10               	beq	L7A22
+     956/    7A0F : 7A 76 FC            	dec	X76FC
+     957/    7A12 : 27 05               	beq	L7A1C
+     958/    7A14 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+     959/    7A17 : 20 03               	bra	L7A1F
+     960/    7A19 :                     ;
+     961/    7A19 :                     L7A1C:
+     962/    7A19 : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+     963/    7A1C :                     L7A1F:
+     964/    7A1C : FF 77 11            	stx	X7711
+     965/    7A1F :                     L7A22:
+     966/    7A1F : 39                  	rts
+     967/    7A20 :                     ;
+     968/    7A20 :                     ; ------------------------------------------------------------------------------
+     969/    7A20 :                     	;; 
+     970/    7A20 :                     	;; BR - Add a Break Point - SET/RESET UP TO FOUR BPS
+     971/    7A20 :                             ;; n aaaa
+     972/    7A20 :                             ;; aaaa    op
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 26 - 12/12/2022 15:11:20
+
+
+     973/    7A20 :                             ;; op -> bp#n 
+     974/    7A20 :                     L7A23:
+     975/    7A20 : 8D 45               BRINST: bsr	BKNUM           ; GET NUMBER OF DESIRED BP (L 7A6A)
+     976/    7A22 : FF 77 11            	stx	TMPSTR          ; Save BP# to tmp (what are we saving?)
+     977/    7A25 : 8D 22               	bsr	BERASE          ; GO ERASE OLD ONE (L 7A4C)
+     978/    7A27 : CE 79 33            	ldx	#ADDRSTR        ; ($7936)
+     979/    7A2A : BD 77 24            	jsr	PDATA           ; Print " Number? "(L 7724)
+     980/    7A2D : BD 76 8A            	jsr	BADDR           ; GET ADDRESS (L 768A)
+     981/    7A30 : FF 76 EC            	stx	BRTMP           ; Save Addr to tmp (X 76EC)
+     982/    7A33 : E6 00               	ldab	$00,x           ; Get op @X
+     983/    7A35 : 86 3F               	ldaa	#SWIINST        ; GET SWI INSTR ($3F)
+     984/    7A37 : A7 00               	staa	$00,x           ; Stow SWI @X
+     985/    7A39 : FE 77 11            	ldx	TMPSTR          ; Get BP# from tmp (X 7711)
+     986/    7A3C : B6 76 EC            	ldaa	BRTMP           ; Get hi(Addr) from tmp (X 76EC)
+     987/    7A3F : A7 00               	staa	$00,x
+     988/    7A41 : B6 76 ED            	ldaa	BRTMP+1         ; Get lo(Addr) from tmp (X 76ED) ldd perhaps?
+     989/    7A44 : A7 01               	staa	$01,x
+     990/    7A46 : E7 02               	stab	$02,x
+     991/    7A48 : 39                  	rts
+     992/    7A49 :                     ;
+     993/    7A49 :                     L7A4C:
+     994/    7A49 : E6 02               BERASE: ldab	$02,x           ; Get OP
+     995/    7A4B : A6 00               	ldaa	$00,x           ; Get Part of Address
+     996/    7A4D : 81 FF               	cmpa	#$FF            ; Was there an Address?
+     997/    7A4F : 27 0B               	beq	BEEXIT          ; No, Exit (L 7A5F)
+     998/    7A51 : EE 00               	ldx	$00,x           ; Yes, Get Addr of Break
+     999/    7A53 : E7 00               	stab	$00,x           ; Restore OP
+    1000/    7A55 : FE 77 11            	ldx	TMPSTR          ; (X 7711)
+    1001/    7A58 : 86 FF               	ldaa	#$FF            ;
+    1002/    7A5A : A7 00               	staa	$00,x           ; Erase BP Table Entry
+    1003/    7A5C :                     L7A5F:
+    1004/    7A5C : 39                  BEEXIT: rts                     ; and Return
+    1005/    7A5D :                                                     ;
+    1006/    7A5D :                             ;;
+    1007/    7A5D :                             ;; BKNUM routine - Get # of Desired BP & Point to its location in
+    1008/    7A5D :                             ;; BKTAB
+    1009/    7A5D :                             ;; 
+    1010/    7A5D :                     L7A60:
+    1011/    7A5D : (MACRO)             NUMSTR: fcc     " NUMBER: ", $04
+    1012/    7A67 :                     ;
+    1013/    7A67 :                     L7A6A:
+    1014/    7A67 : CE 7A 5D            BKNUM:  ldx	#NUMSTR         ; ($7A60)
+    1015/    7A6A : BD 77 24            	jsr	PDATA           ; (L 7724)
+    1016/    7A6D : BD 77 33            	jsr	INEEE           ; GET BP# (L 7733)
+    1017/    7A70 : 80 30               	suba	#$30            ; CONVERT FROM ASCII
+    1018/    7A72 : 2B 16               	bmi	BKNUM1          ; (L 7A8D)
+    1019/    7A74 : 27 14               	beq	BKNUM1          ; (L 7A8D)
+    1020/    7A76 : 81 04               	cmpa	#$04
+    1021/    7A78 : 2E 10               	bgt	BKNUM1          ; IF Greater Than 4 (L 7A8D)
+    1022/    7A7A : 36                  	psha
+    1023/    7A7B : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+    1024/    7A7E : 32                  	pula
+    1025/    7A7F : CE 76 EF            	ldx	#BKTAB          ;* ($76EF)
+    1026/    7A82 :                     L7A85:
+    1027/    7A82 : 4A                  BKLOOP: deca
+    1028/    7A83 : 27 07               	beq	BKEXIT          ; (L 7A8F)
+    1029/    7A85 : 08                  	inx
+    1030/    7A86 : 08                  	inx
+    1031/    7A87 : 08                  	inx
+    1032/    7A88 : 20 F8               	bra	BKLOOP          ; (L 7A85)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 27 - 12/12/2022 15:11:20
+
+
+    1033/    7A8A :                     ;
+    1034/    7A8A :                     L7A8D:
+    1035/    7A8A :                     ;NXTCMD:
+    1036/    7A8A : 31                  BKNUM1: ins
+    1037/    7A8B : 31                  	ins
+    1038/    7A8C :                     L7A8F:
+    1039/    7A8C : 39                  BKEXIT: rts
+    1040/    7A8D :                     ; ------------------------------------------------------------------------------
+    1041/    7A8D :                             ;; 
+    1042/    7A8D :                             ;; BP -
+    1043/    7A8D :                             ;; 
+    1044/    7A8D :                     L7A90:
+    1045/    7A8D : C6 30               BPINST: ldab	#$30            ; BP Number in ASCII '0'
+    1046/    7A8F : CE 76 EF            	ldx	#BKTAB          ; ($ 76EF)
+    1047/    7A92 : FF 77 11            	stx	X7711           ;* Tmp storage ?
+    1048/    7A95 :                     L7A98:
+    1049/    7A95 : 5C                  BPR1:   incb
+    1050/    7A96 : C1 35               	cmpb	#$35            ;* Stop at 5 BPs (isn't it actual 4?)
+    1051/    7A98 : 26 01               	bne	BPR2            ;* No Display BP1 - BP4 (L 7A9E)
+    1052/    7A9A : 39                  	rts                     ;* RETURN WHEN DONE
+    1053/    7A9B :                     ;
+    1054/    7A9B :                     L7A9E:
+    1055/    7A9B : BD 77 17            BPR2:   jsr	CRLF            ; Print CR/LF (L 7717)
+    1056/    7A9E : 17                  	tba                     ; GET BP NUMBER
+    1057/    7A9F : BD 77 69            	jsr	OUTEEE          ; PRINT BP NUMBER (L 7769)
+    1058/    7AA2 : FE 77 11            	ldx	X7711           ; GET BP ADDRESS
+    1059/    7AA5 : A6 00               	ldaa	$00,x           ; GET BP ADDRESS
+    1060/    7AA7 : 81 FF               	cmpa	#$FF            ; IS THERE ONE?
+    1061/    7AA9 : 26 05               	bne	BPR3            ; YES, GO PRINT IT (L 7AB3)
+    1062/    7AAB : 08                  	inx
+    1063/    7AAC : 08                  	inx
+    1064/    7AAD : 08                          inx
+    1065/    7AAE : 20 0C               	bra	BPR4            ; AND REPEAT (L 7ABF)
+    1066/    7AB0 :                     ;
+    1067/    7AB0 :                     L7AB3:
+    1068/    7AB0 : BD 76 DA            BPR3:   jsr	OUTS            ; PRINT SPACE (L 76DA)
+    1069/    7AB3 : FE 77 11            	ldx	X7711
+    1070/    7AB6 : BD 76 D6            	jsr	OUT4HS          ;* PRINT ADDRESS OF BP (L 76D6)
+    1071/    7AB9 : BD 76 D8            	jsr	OUT2HS          ;* PRINT OP CODE (L 76D8)
+    1072/    7ABC :                     L7ABF:
+    1073/    7ABC : FF 77 11            BPR4:   stx	X7711
+    1074/    7ABF : 20 D4               	bra	BPR1            ;* Next BP (L 7A98)
+    1075/    7AC1 :                     ; ------------------------------------------------------------------------------
+    1076/    7AC1 :                     ;
+    1077/    7AC1 :                     SWIHDLR:
+    1078/    7AC1 :                     L7AC4:
+    1079/    7AC1 : BF 77 07            	sts	USRSTK          ; SAVE USER STACK PTR (X770F)
+    1080/    7AC4 : 30                  	tsx                     ;
+    1081/    7AC5 : 6D 06               	tst	$06,x
+    1082/    7AC7 : 26 02               	bne	L7ACE
+    1083/    7AC9 : 6A 05               	dec	$05,x
+    1084/    7ACB :                     L7ACE:
+    1085/    7ACB : 6A 06               	dec	$06,x
+    1086/    7ACD : BF 77 0F            	sts	X770F           ; SAVE USER STACK PTR (X770F)
+    1087/    7AD0 : 8E 7F A0            	lds	#STACK          ; RESET TO MON STACK - ($7FA0)
+    1088/    7AD3 :                             ;; 
+    1089/    7AD3 :                             ;; * 'RE' COMMAND - PRINT USER REGISTERS FROM STACK
+    1090/    7AD3 :                     	;;
+    1091/    7AD3 : BD 77 17            REINST:	jsr	CRLF            ; (L 7717 - L 7AD6:)
+    1092/    7AD6 : CE 7B 18            	ldx	#REMSG          ; $Register Message $7B1B
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 28 - 12/12/2022 15:11:20
+
+
+    1093/    7AD9 : BD 77 24            	jsr	PDATA           ; (L 7724)
+    1094/    7ADC : BD 77 17            	jsr	CRLF            ; (L 7717)
+    1095/    7ADF : FE 77 0F            	ldx	SP              ; (X 770F)
+    1096/    7AE2 : E6 01               	ldab	$01,x           ; GET CC REGISTER
+    1097/    7AE4 : CE 00 06            	ldx	#$0006          ; SET COUNTER
+    1098/    7AE7 : 58                  	aslb                    ; MOVE NEXT BIT INTO CARRY
+    1099/    7AE8 : 58                  	aslb                    ;
+    1100/    7AE9 :                     L7AEC:
+    1101/    7AE9 :                     RELOOP: 
+    1102/    7AE9 : 58                  	aslb                    ;
+    1103/    7AEA : 86 30               	ldaa	#$30            ;
+    1104/    7AEC : 89 00               	adca	#$00            ; CONVERT TO ASCII
+    1105/    7AEE : BD 77 69            	jsr	OUTEEE          ; PRINT IT (L 7769 - OUTEEE)
+    1106/    7AF1 : 09                  	dex                     ; BUMP COUNTER
+    1107/    7AF2 : 26 F5               	bne	RELOOP          ; PRINT NEXT BIT (L7AEC)
+    1108/    7AF4 : BD 76 DA            	jsr	OUTS            ; PRINT SPACE (L76DA)
+    1109/    7AF7 : FE 77 0F            	ldx	X770F           ; POINT TO USER STACK AGAIN (X770F)
+    1110/    7AFA : 08                  	inx                     ; POINT TO A ACCUMULATOR
+    1111/    7AFB : 08                  	inx
+    1112/    7AFC : BD 76 D8            	jsr	OUT2HS          ; OUT2HS PRINT A (L76D8)
+    1113/    7AFF : BD 76 D8            	jsr	OUT2HS          ; PRINT B
+    1114/    7B02 : BD 76 D6            	jsr	OUT4HS          ; PRINT X INDEX (L76D6)
+    1115/    7B05 : BD 76 D8            	jsr	OUT2HS          ; PRINT PC
+    1116/    7B08 : FC 77 0F            	ldd	X770F           ; (X770F)
+    1117/    7B0B : C3 00 07            	addd	#$0007          ; RESTORE USER SP
+    1118/    7B0E : 37                  	pshb                    ; TO VALUE IT HAD
+    1119/    7B0F : 36                  	psha                    ; TO VALUE IT HAD
+    1120/    7B10 : 30                  	tsx                     ; 
+    1121/    7B11 : BD 76 D8            	jsr	OUT2HS          ; OUT4HS PRINT SP
+    1122/    7B14 : 38                  	pulx                    ; FIX SP
+    1123/    7B15 : 7E 75 94            	jmp	NXTCMD          ; NXTCMD AND RETURN (L7594)
+    1124/    7B18 :                     ;
+    1125/    7B18 :                     L7B1B:
+    1126/    7B18 : (MACRO)             REMSG:  fcc     "hinzvc b  a   x    pc   sp", $04
+    1127/    7B33 :                     L7B36:
+    1128/    7B33 : CE 7B 5B            RCINST: ldx	#$7B5B
+    1129/    7B36 : BD 77 24            	jsr	L7724
+    1130/    7B39 : BD 77 33            	jsr	INEEE           ; (L 7733)
+    1131/    7B3C : C6 01               	ldab	#$01
+    1132/    7B3E : CE 7B 61            	ldx	#$7B61
+    1133/    7B41 :                     L7B44:
+    1134/    7B41 : A1 00               	cmpa	$00,x
+    1135/    7B43 : 27 09               	beq	L7B51
+    1136/    7B45 :                     L7B48:
+    1137/    7B45 : 08                  	inx
+    1138/    7B46 : 5C                  	incb
+    1139/    7B47 : C1 07               	cmpb	#$07
+    1140/    7B49 :                     L7B4C:
+    1141/    7B49 : 26 F6               	bne	L7B44
+    1142/    7B4B :                     L7B4E:
+    1143/    7B4B : 7E 75 D5            	jmp	L75D5
+    1144/    7B4E :                     ;
+    1145/    7B4E :                     L7B51:
+    1146/    7B4E : FE 77 07            	ldx	USRSTK          ; (X 770F)
+    1147/    7B51 : 3A                  	abx
+    1148/    7B52 : FF 77 09            	stx	BADDRH          ; (X 7709)
+    1149/    7B55 : 7E 76 46            	jmp	CHANGE0         ; (L 7646)
+    1150/    7B58 :                     ;
+    1151/    7B58 : (MACRO)             L7B5B:  fcc     "REG: ", $04
+    1152/    7B5E :                                                     ;
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 29 - 12/12/2022 15:11:20
+
+
+    1153/    7B5E :                             ;;
+    1154/    7B5E :                             ;; This needs some clean up, not sure what
+    1155/    7B5E :                             ;; this is for
+    1156/    7B5E :                             ;; 
+    1157/    7B5E : 43                  L7B61:  coma                    ; db $43
+    1158/    7B5F :                     ;
+    1159/    7B5F : 42 41               	byt	$42, $41        ; db $42, $41
+    1160/    7B61 :                     ;
+    1161/    7B61 : 58                  	aslb                    ; db $58
+    1162/    7B62 :                     L7B65:
+    1163/    7B62 : 58                  	aslb
+    1164/    7B63 : 50                  	negb
+    1165/    7B64 :                     	;; CO
+    1166/    7B64 :                     L7B67
+    1167/    7B64 : BE 77 07            COINST: lds	USRSTK          ; X770F
+    1168/    7B67 : 3B                  	rti
+    1169/    7B68 :                     ;
+    1170/    7B68 : 01                  L7B6B:  nop
+    1171/    7B69 : (MACRO)             L7B6C:  fcc     "START FROM ADDRESS: ", $04
+    1172/    7B7E :                     ;
+    1173/    7B7E :                     L7B81:
+    1174/    7B7E : CE 7B 6C            STINST: ldx	#$7B6C
+    1175/    7B81 : BD 77 24            	jsr	L7724
+    1176/    7B84 : BD 76 8A            	jsr	L768A
+    1177/    7B87 : FF 7F FC            	stx	X7FFC
+    1178/    7B8A : CE 75 6A            	ldx	#$756A
+    1179/    7B8D : FF 7F FE            	stx	X7FFE
+    1180/    7B90 : CE 7F F6            	ldx	#$7FF6
+    1181/    7B93 : FF 77 07            	stx	USRSTK          ; X770F
+    1182/    7B96 :                     L7B99:  
+    1183/    7B96 : FE 77 07            SSINST: ldx	USRSTK          ; X770F
+    1184/    7B99 : EE 06               	ldx	$06,x
+    1185/    7B9B : FF 76 FD            	stx	X76FD
+    1186/    7B9E : FF 77 11            	stx	X7711
+    1187/    7BA1 : BD 79 CB            	jsr	L79CE
+    1188/    7BA4 : FF 76 EC            	stx	X76EC
+    1189/    7BA7 : A6 00               	ldaa	$00,x
+    1190/    7BA9 : B7 76 EE            	staa	X76EE
+    1191/    7BAC : 86 3F               	ldaa	#$3F            ; ?
+    1192/    7BAE : A7 00               	staa	$00,x
+    1193/    7BB0 : A1 00               	cmpa	$00,x
+    1194/    7BB2 : 26 39               	bne	L7BF0
+    1195/    7BB4 : B6 76 FB            	ldaa	X76FB
+    1196/    7BB7 : 81 20               	cmpa	#$20            ; Space?
+    1197/    7BB9 : 25 04               	bcs	L7BC2
+    1198/    7BBB : 81 30               	cmpa	#$30            ; 0
+    1199/    7BBD : 25 72               	bcs	L7C34
+    1200/    7BBF :                     L7BC2:
+    1201/    7BBF : 81 39               	cmpa	#$39            ; 9
+    1202/    7BC1 : 26 03               	bne	L7BC9
+    1203/    7BC3 : 7E 7C 7B            	jmp	L7C7E
+    1204/    7BC6 :                     ;
+    1205/    7BC6 :                     L7BC9:
+    1206/    7BC6 : 81 3B               	cmpa	#$3B            ; ';'
+    1207/    7BC8 : 27 23               	beq	L7BF0
+    1208/    7BCA : 81 3F               	cmpa	#$3F            ; '?'
+    1209/    7BCC : 27 1F               	beq	L7BF0
+    1210/    7BCE : 81 6E               	cmpa	#$6E            ; 'n'
+    1211/    7BD0 : 26 03               	bne	L7BD8
+    1212/    7BD2 :                     L7BD5:
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 30 - 12/12/2022 15:11:20
+
+
+    1213/    7BD2 : 7E 7C 6A            	jmp	L7C6D
+    1214/    7BD5 :                     ;
+    1215/    7BD5 :                     L7BD8:
+    1216/    7BD5 : 81 AD               	cmpa	#$AD
+    1217/    7BD7 : 27 F9               	beq	L7BD5
+    1218/    7BD9 : 81 7E               	cmpa	#$7E
+    1219/    7BDB : 27 7B               	beq	L7C5B
+    1220/    7BDD : 81 BD               	cmpa	#$BD
+    1221/    7BDF : 27 77               	beq	L7C5B
+    1222/    7BE1 : 81 8D               	cmpa	#$8D
+    1223/    7BE3 : 27 4C               	beq	L7C34
+    1224/    7BE5 : 81 9D               	cmpa	#$9D
+    1225/    7BE7 : 27 76               	beq	L7C62
+    1226/    7BE9 : 81 3E               	cmpa	#$3E
+    1227/    7BEB : 26 15               	bne	L7C05
+    1228/    7BED :                     L7BF0:
+    1229/    7BED : CE 7C 01            	ldx	#$7C01
+    1230/    7BF0 : BD 77 24            	jsr	L7724
+    1231/    7BF3 : FE 76 EC            	ldx	X76EC
+    1232/    7BF6 : B6 76 EE            	ldaa	X76EE
+    1233/    7BF9 : A7 00               	staa	$00,x
+    1234/    7BFB : 7E 75 94            	jmp	L7594
+    1235/    7BFE :                     ;
+    1236/    7BFE : (MACRO)             L7C01:  fcc     "NO!", $04
+    1237/    7C02 :                     ;	db	$4E             ;
+    1238/    7C02 :                     ;
+    1239/    7C02 :                     ;	clra
+    1240/    7C02 :                     ;	brn	L7C09
+    1241/    7C02 :                     L7C05:
+    1242/    7C02 : 86 FF               	ldaa	#$FF
+    1243/    7C04 : B7 76 E9            	staa	X76E9
+    1244/    7C07 :                     L7C0A:
+    1245/    7C07 : CE 7C 14            	ldx	#$7C14
+    1246/    7C0A : FF 42 10            	stx	$4210
+    1247/    7C0D : BE 77 07            	lds	USRSTK          ; X770F
+    1248/    7C10 : 3B                  	rti
+    1249/    7C11 :                     ;
+    1250/    7C11 : FE 7A C1            	ldx	SWIHDLR         ; #$7AC4
+    1251/    7C14 : FF 42 10            	stx	$4210
+    1252/    7C17 : FE 76 EC            	ldx	X76EC
+    1253/    7C1A : B6 76 EE            	ldaa	X76EE
+    1254/    7C1D : A7 00               	staa	$00,x
+    1255/    7C1F : B6 76 E9            	ldaa	X76E9
+    1256/    7C22 : 81 FF               	cmpa	#$FF
+    1257/    7C24 : 27 08               	beq	L7C31
+    1258/    7C26 : FE 76 E9            	ldx	X76E9
+    1259/    7C29 : B6 76 EB            	ldaa	X76EB
+    1260/    7C2C : A7 00               	staa	$00,x
+    1261/    7C2E :                     L7C31:
+    1262/    7C2E : 7E 7A C1            	jmp	SWIHDLR         ; L7AC4
+    1263/    7C31 :                     ;
+    1264/    7C31 :                     L7C34:
+    1265/    7C31 : FE 76 FD            	ldx	X76FD
+    1266/    7C34 : E6 01               	ldab	$01,x
+    1267/    7C36 : 27 06               	beq	L7C41
+    1268/    7C38 : 2B 18               	bmi	L7C55
+    1269/    7C3A :                     L7C3D:
+    1270/    7C3A : 08                  	inx
+    1271/    7C3B : 5A                  	decb
+    1272/    7C3C : 26 FC               	bne	L7C3D
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 31 - 12/12/2022 15:11:20
+
+
+    1273/    7C3E :                     L7C41:
+    1274/    7C3E : 08                  	inx
+    1275/    7C3F : 08                  	inx
+    1276/    7C40 :                     L7C43:
+    1277/    7C40 : FF 76 E9            	stx	X76E9
+    1278/    7C43 : A6 00               	ldaa	$00,x
+    1279/    7C45 : B7 76 EB            	staa	X76EB
+    1280/    7C48 : 86 3F               	ldaa	#$3F
+    1281/    7C4A : A7 00               	staa	$00,x
+    1282/    7C4C : A1 00               	cmpa	$00,x
+    1283/    7C4E : 27 B7               	beq	L7C0A
+    1284/    7C50 : 20 9B               	bra	L7BF0
+    1285/    7C52 :                     ;
+    1286/    7C52 :                     L7C55:
+    1287/    7C52 : 09                  	dex
+    1288/    7C53 : 5C                  	incb
+    1289/    7C54 : 26 FC               	bne	L7C55
+    1290/    7C56 : 20 E6               	bra	L7C41
+    1291/    7C58 :                     ;
+    1292/    7C58 :                     L7C5B:
+    1293/    7C58 : FE 76 FD            	ldx	X76FD
+    1294/    7C5B : EE 01               	ldx	$01,x
+    1295/    7C5D : 20 E1               	bra	L7C43
+    1296/    7C5F :                     ;
+    1297/    7C5F :                     L7C62:
+    1298/    7C5F : FE 76 FD            	ldx	X76FD
+    1299/    7C62 : E6 01               	ldab	$01,x
+    1300/    7C64 : CE 00 00            	ldx	#$0000
+    1301/    7C67 : 3A                  	abx
+    1302/    7C68 : 20 D6               	bra	L7C43
+    1303/    7C6A :                     ;
+    1304/    7C6A :                     L7C6D:
+    1305/    7C6A : FE 76 FD            	ldx	X76FD
+    1306/    7C6D : E6 01               	ldab	$01,x
+    1307/    7C6F : FE 77 07            	ldx	USRSTK          ; X770F
+    1308/    7C72 : EE 04               	ldx	$04,x
+    1309/    7C74 : 09                  	dex
+    1310/    7C75 : 09                  	dex
+    1311/    7C76 : 5D                  	tstb
+    1312/    7C77 : 27 C5               	beq	L7C41
+    1313/    7C79 : 20 BF               	bra	L7C3D
+    1314/    7C7B :                     ;
+    1315/    7C7B :                     L7C7E:
+    1316/    7C7B : FE 77 07            	ldx	USRSTK          ; X770F
+    1317/    7C7E : EE 08               	ldx	$08,x
+    1318/    7C80 : 20 BE               	bra	L7C43
+    1319/    7C82 :                                                     ;
+    1320/    7C82 :                             ;; AD
+    1321/    7C82 :                             ;; HD
+    1322/    7C82 :                     L7C85:
+    1323/    7C82 :                     HDINST: 
+    1324/    7C82 : BD 79 54            ADINST: jsr	FROMTO          ;* GET ADDRESSES (L 7957)
+    1325/    7C85 : FE 77 05            	ldx	BEGA            ;* GET STARTING ADDRESS (X 7705)
+    1326/    7C88 : FF 77 11            	stx	X7711
+    1327/    7C8B : FF 77 0B            	stx	X770B
+    1328/    7C8E : 20 03               	bra	L7C96
+    1329/    7C90 :                     ;
+    1330/    7C90 : B7 77 12            	staa	X7712
+    1331/    7C93 :                     L7C96:
+    1332/    7C93 : BD 77 17            	jsr	CRLF            ; (L 7717)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 32 - 12/12/2022 15:11:20
+
+
+    1333/    7C96 : CE 77 11            	ldx	#$7711
+    1334/    7C99 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+    1335/    7C9C : 7D 76 DA            	tst	OUTS            ; (X 76DA)
+    1336/    7C9F : C6 04               	ldab	#$04
+    1337/    7CA1 : FE 77 11            	ldx	X7711
+    1338/    7CA4 :                     L7CA7:
+    1339/    7CA4 : BD 76 CD            	jsr	OUT2H           ; (L 76CD)
+    1340/    7CA7 : 5A                  	decb
+    1341/    7CA8 : 26 FA               	bne	L7CA7
+    1342/    7CAA : FF 77 11            	stx	X7711
+    1343/    7CAD : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+    1344/    7CB0 : C6 04               	ldab	#EOT            ; $04
+    1345/    7CB2 : FE 77 11            	ldx	X7711
+    1346/    7CB5 :                     L7CB8:
+    1347/    7CB5 : BD 76 CD            	jsr	OUT2H           ; (L 76CD)
+    1348/    7CB8 : 5A                  	decb
+    1349/    7CB9 : 26 FA               	bne	L7CB8
+    1350/    7CBB : FF 77 11            	stx	X7711
+    1351/    7CBE : 20 0B               	bra	L7CCE
+    1352/    7CC0 :                     ;
+    1353/    7CC0 : B6 77 0C            	ldaa	X770C
+    1354/    7CC3 : 84 F0               	anda	#$F0
+    1355/    7CC5 : B7 77 0C            	staa	X770C
+    1356/    7CC8 : BD 77 17            	jsr	L7717
+    1357/    7CCB :                     L7CCE:
+    1358/    7CCB : CE 77 0B            	ldx	#$770B
+    1359/    7CCE : 7D 76 D6            	tst	OUT4HS          ; (X 76D6)
+    1360/    7CD1 : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+    1361/    7CD4 : C6 08               	ldab	#CTRLH          ; $08
+    1362/    7CD6 : FE 77 0B            	ldx	X770B
+    1363/    7CD9 :                     L7CDC:
+    1364/    7CD9 : A6 00               	ldaa	$00,x
+    1365/    7CDB : 09                  	dex
+    1366/    7CDC : BC 77 07            	cpx	USRSTK          ; X7707
+    1367/    7CDF : 26 01               	bne	L7CE5
+    1368/    7CE1 : 39                  	rts
+    1369/    7CE2 :                     ;
+    1370/    7CE2 :                     L7CE5:
+    1371/    7CE2 : 08                  	inx
+    1372/    7CE3 : 08                  	inx
+    1373/    7CE4 : FF 77 0B            	stx	X770B
+    1374/    7CE7 : 84 7F               	anda	#$7F
+    1375/    7CE9 : 81 7F               	cmpa	#$7F            ; DEL?
+    1376/    7CEB : 27 04               	beq	L7CF4
+    1377/    7CED : 81 20               	cmpa	#$20            ; Space?
+    1378/    7CEF : 24 02               	bcc	L7CF6
+    1379/    7CF1 :                     L7CF4:
+    1380/    7CF1 : 86 2E               	ldaa	#$2E
+    1381/    7CF3 :                     L7CF6:
+    1382/    7CF3 : BD 77 69            	jsr	L7769
+    1383/    7CF6 : 5A                  	decb
+    1384/    7CF7 : 26 E0               	bne	L7CDC
+    1385/    7CF9 : 20 98               	bra	L7C96
+    1386/    7CFB :                     ;
+    1387/    7CFB : CE 7D 60            MCINST: ldx	#$7D60
+    1388/    7CFE : BD 77 24            	jsr	L7724
+    1389/    7D01 : BD 79 54            	jsr	FROMTO          ; L 7957
+    1390/    7D04 : BD 77 17            	jsr	CRLF            ; L7717
+    1391/    7D07 : FE 77 05            	ldx	X7705
+    1392/    7D0A : FF 77 0B            	stx	X770B
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 33 - 12/12/2022 15:11:20
+
+
+    1393/    7D0D : BD 77 17            	jsr	CRLF            ; L7717
+    1394/    7D10 : CE 79 49            	ldx	#$7949
+    1395/    7D13 : BD 77 24            	jsr	L7724
+    1396/    7D16 : BD 76 8A            	jsr	L768A
+    1397/    7D19 : FF 77 0D            	stx	X770D
+    1398/    7D1C : BD 77 17            	jsr	CRLF            ; (L 7717)
+    1399/    7D1F :                     L7D22:
+    1400/    7D1F : FE 77 0B            	ldx	X770B
+    1401/    7D22 : A6 00               	ldaa	$00,x
+    1402/    7D24 : FE 77 0D            	ldx	X770D
+    1403/    7D27 : E6 00               	ldab	$00,x
+    1404/    7D29 : 11                  	cba
+    1405/    7D2A : 27 1B               	beq	L7D4A
+    1406/    7D2C : BD 77 17            	jsr	CRLF            ; (L 7717)
+    1407/    7D2F : CE 77 0B            	ldx	#$770B
+    1408/    7D32 : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+    1409/    7D35 : FE 77 0B            	ldx	X770B
+    1410/    7D38 : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+    1411/    7D3B : CE 77 0D            	ldx	#$770D
+    1412/    7D3E : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+    1413/    7D41 : FE 77 0D            	ldx	X770D
+    1414/    7D44 : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+    1415/    7D47 :                     L7D4A:
+    1416/    7D47 : FE 77 0B            	ldx	X770B
+    1417/    7D4A : 08                  	inx
+    1418/    7D4B : FF 77 0B            	stx	X770B
+    1419/    7D4E : BC 77 07            	cpx	USRSTK          ; X7707
+    1420/    7D51 : 27 09               	beq	L7D5F
+    1421/    7D53 : FE 77 0D            	ldx	X770D
+    1422/    7D56 : 08                  	inx
+    1423/    7D57 : FF 77 0D            	stx	X770D
+    1424/    7D5A : 20 C3               	bra	L7D22
+    1425/    7D5C :                     L7D5F:
+    1426/    7D5C : 39                  	rts
+    1427/    7D5D :                     ;
+    1428/    7D5D : (MACRO)             L7D60:  fcc     "COMPARE:", $04
+    1429/    7D66 :                     L7D69:
+    1430/    7D66 : BD 79 54            MTINST: jsr	FROMTO          ; (L7957)
+    1431/    7D69 : FE 77 05            	ldx	X7705
+    1432/    7D6C :                     L7D6F:
+    1433/    7D6C : A6 00               	ldaa	$00,x
+    1434/    7D6E : B7 77 0B            	staa	X770B
+    1435/    7D71 : 86 01               	ldaa	#$01
+    1436/    7D73 : A7 00               	staa	$00,x
+    1437/    7D75 : A1 00               	cmpa	$00,x
+    1438/    7D77 : 26 0D               	bne	L7D89
+    1439/    7D79 :                     L7D7C:
+    1440/    7D79 : 48                  	asla
+    1441/    7D7A : A7 00               	staa	$00,x
+    1442/    7D7C : A1 00               	cmpa	$00,x
+    1443/    7D7E : 26 06               	bne	L7D89
+    1444/    7D80 : 81 80               	cmpa	#$80
+    1445/    7D82 : 26 F5               	bne	L7D7C
+    1446/    7D84 : 20 16               	bra	L7D9F
+    1447/    7D86 :                     ;
+    1448/    7D86 :                     L7D89:
+    1449/    7D86 : 3C                  	pshx
+    1450/    7D87 : 36                  	psha
+    1451/    7D88 : BD 77 17            	jsr	L7717
+    1452/    7D8B : 30                  	tsx
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 34 - 12/12/2022 15:11:20
+
+
+    1453/    7D8C : 08                  	inx
+    1454/    7D8D : BD 76 D6            	jsr	OUT4HS          ; (L 76D6)
+    1455/    7D90 : 30                  	tsx
+    1456/    7D91 : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+    1457/    7D94 : 30                  	tsx
+    1458/    7D95 : EE 01               	ldx	$01,x
+    1459/    7D97 : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+    1460/    7D9A : 32                  	pula
+    1461/    7D9B : 38                  	pulx
+    1462/    7D9C :                     L7D9F:
+    1463/    7D9C : B6 77 0B            	ldaa	X770B
+    1464/    7D9F : A7 00               	staa	$00,x
+    1465/    7DA1 : BC 77 07            	cpx	USRSTK          ; X7707
+    1466/    7DA4 : 27 03               	beq	L7DAC
+    1467/    7DA6 : 08                  	inx
+    1468/    7DA7 : 20 C3               	bra	L7D6F
+    1469/    7DA9 :                     ;
+    1470/    7DA9 :                     L7DAC:
+    1471/    7DA9 : CE 7D B2            	ldx	#$7DB2
+    1472/    7DAC : 7E 77 24            	jmp	L7724
+    1473/    7DAF :                     ;
+    1474/    7DAF : (MACRO)             L7DB2:	fcc     "OK", $04
+    1475/    7DB2 :                     L7DB5:
+    1476/    7DB2 : CE 7E 33            FIINST: ldx	#$7E33
+    1477/    7DB5 : BD 77 24            	jsr	L7724
+    1478/    7DB8 : BD 77 33            	jsr	INEEE           ; (L 7733)
+    1479/    7DBB : 80 30               	suba	#$30
+    1480/    7DBD : 27 6E               	beq	L7E30
+    1481/    7DBF : 2B 6C               	bmi	L7E30
+    1482/    7DC1 : 81 03               	cmpa	#$03
+    1483/    7DC3 : 2E 68               	bgt	L7E30
+    1484/    7DC5 : B7 76 E9            	staa	X76E9
+    1485/    7DC8 : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+    1486/    7DCB : CE 79 50            	ldx	#$7950
+    1487/    7DCE : BD 77 24            	jsr	L7724
+    1488/    7DD1 : F6 76 E9            	ldab	X76E9
+    1489/    7DD4 : CE 76 EC            	ldx	#$76EC
+    1490/    7DD7 :                     L7DDA:
+    1491/    7DD7 : 37                  	pshb
+    1492/    7DD8 : BD 76 98            	jsr	L7698
+    1493/    7DDB : 33                  	pulb
+    1494/    7DDC : A7 00               	staa	$00,x
+    1495/    7DDE : 08                  	inx
+    1496/    7DDF : 5A                  	decb
+    1497/    7DE0 : 26 F5               	bne	L7DDA
+    1498/    7DE2 : BD 77 17            	jsr	L7717
+    1499/    7DE5 : BD 79 54            	jsr	FROMTO          ; (L7957)
+    1500/    7DE8 : FE 77 05            	ldx	X7705
+    1501/    7DEB :                     L7DEE:
+    1502/    7DEB : F6 76 E9            	ldab	X76E9
+    1503/    7DEE : A6 00               	ldaa	$00,x
+    1504/    7DF0 : B1 76 EC            	cmpa	X76EC
+    1505/    7DF3 : 26 30               	bne	L7E28
+    1506/    7DF5 : 5A                  	decb
+    1507/    7DF6 : 27 11               	beq	L7E0C
+    1508/    7DF8 : A6 01               	ldaa	$01,x
+    1509/    7DFA : B1 76 ED            	cmpa	X76ED
+    1510/    7DFD : 26 26               	bne	L7E28
+    1511/    7DFF : 5A                  	decb
+    1512/    7E00 : 27 07               	beq	L7E0C
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 35 - 12/12/2022 15:11:20
+
+
+    1513/    7E02 : A6 02               	ldaa	$02,x
+    1514/    7E04 : B1 76 EE            	cmpa	X76EE
+    1515/    7E07 : 26 1C               	bne	L7E28
+    1516/    7E09 :                     L7E0C:
+    1517/    7E09 : FF 77 11            	stx	X7711
+    1518/    7E0C : 8D 1F               	bsr	L7E30
+    1519/    7E0E : CE 77 11            	ldx	#$7711
+    1520/    7E11 : 8D 5E               	bsr	L7E74
+    1521/    7E13 : BD 76 DA            	jsr	OUTS            ; (L 76DA)
+    1522/    7E16 : FE 77 11            	ldx	X7711
+    1523/    7E19 : 09                  	dex
+    1524/    7E1A : C6 04               	ldab	#$04
+    1525/    7E1C :                     L7E1F:
+    1526/    7E1C : BD 76 D8            	jsr	OUT2HS          ; (L 76D8)
+    1527/    7E1F : 5A                  	decb
+    1528/    7E20 : 26 FA               	bne	L7E1F
+    1529/    7E22 : FE 77 11            	ldx	X7711
+    1530/    7E25 :                     L7E28:
+    1531/    7E25 : BC 77 07            	cpx	USRSTK          ; X7707
+    1532/    7E28 : 27 03               	beq	L7E30
+    1533/    7E2A : 08                  	inx
+    1534/    7E2B : 20 BE               	bra	L7DEE
+    1535/    7E2D :                     L7E30:
+    1536/    7E2D : 7E 77 17            	jmp	L7717
+    1537/    7E30 :                     ;
+    1538/    7E30 : (MACRO)             L7E33:  fcc     "HOW MANY? ", $04
+    1539/    7E3B :                     	;; 
+    1540/    7E3B :                     L7E3E:
+    1541/    7E3B : BD 79 54            FMINST: jsr	FROMTO          ; L7957
+    1542/    7E3E : CE 79 49            	ldx	#$7949
+    1543/    7E41 : BD 77 24            	jsr	L7724
+    1544/    7E44 : BD 76 98            	jsr	L7698
+    1545/    7E47 : FE 77 05            	ldx	X7705
+    1546/    7E4A : 09                  	dex
+    1547/    7E4B :                     L7E4E:
+    1548/    7E4B : 08                  	inx
+    1549/    7E4C : A7 00               	staa	$00,x
+    1550/    7E4E : BC 77 07            	cpx	USRSTK          ; X7707
+    1551/    7E51 : 26 F8               	bne	L7E4E
+    1552/    7E53 : 39                  	rts
+    1553/    7E54 :                     ;
+    1554/    7E54 :                     	;; CS
+    1555/    7E54 :                     L7E57:  
+    1556/    7E54 : BD 79 54            CSINST: jsr	FROMTO          ; L7957
+    1557/    7E57 : FE 77 05            	ldx	X7705
+    1558/    7E5A : 4F                  	clra
+    1559/    7E5B : 5F                  	clrb
+    1560/    7E5C :                     L7E5F:
+    1561/    7E5C : EB 00               	addb	$00,x
+    1562/    7E5E : 89 00               	adca	#$00
+    1563/    7E60 : BC 77 07            	cpx	USRSTK          ; X7707
+    1564/    7E63 : 27 03               	beq	L7E6B
+    1565/    7E65 : 08                  	inx
+    1566/    7E66 : 20 F4               	bra	L7E5F
+    1567/    7E68 :                     ;
+    1568/    7E68 :                     L7E6B:
+    1569/    7E68 : B7 77 11            	staa	X7711
+    1570/    7E6B : F7 77 12            	stab	X7712
+    1571/    7E6E : CE 77 11            	ldx	#$7711
+    1572/    7E71 :                     L7E74:
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 36 - 12/12/2022 15:11:20
+
+
+    1573/    7E71 : 7E 76 D6            	jmp	OUT4HS          ; L76D6
+    1574/    7E74 :                     ;
+    1575/    7E74 :                     	;; AI
+    1576/    7E74 :                     L7E77:  
+    1577/    7E74 : BD 79 54            AIINST: jsr	FROMTO          ; L7957
+    1578/    7E77 : BD 77 17            	jsr	CRLF            ; L7717
+    1579/    7E7A : FE 77 07            	ldx	USRSTK          ; X7707
+    1580/    7E7D : FF 77 11            	stx	X7711
+    1581/    7E80 : FE 77 05            	ldx	X7705
+    1582/    7E83 : 09                  	dex
+    1583/    7E84 :                     L7E87:
+    1584/    7E84 : 08                  	inx
+    1585/    7E85 : BD 77 33            	jsr	INEEE           ; (L 7733)
+    1586/    7E88 : A7 00               	staa	$00,x
+    1587/    7E8A : A1 00               	cmpa	$00,x
+    1588/    7E8C : 26 08               	bne	L7E99
+    1589/    7E8E : FF 77 07            	stx	USRSTK          ; X7707
+    1590/    7E91 : BC 77 11            	cpx	X7711
+    1591/    7E94 : 26 EE               	bne	L7E87
+    1592/    7E96 :                     L7E99:
+    1593/    7E96 : CE 7E A1            	ldx	#$7EA1
+    1594/    7E99 : BD 77 24            	jsr	L7724
+    1595/    7E9C : 20 F8               	bra	L7E99
+    1596/    7E9E : (MACRO)             L7EA1:  fcc     " ERROR", $04
+    1597/    7EA5 :                     	;;
+    1598/    7EA5 :                     	;; AO - ASCII OUTPUT ROUTINE
+    1599/    7EA5 :                             ;;
+    1600/    7EA5 :                     L7EA8:
+    1601/    7EA5 : BD 79 54            AOINST: jsr	FROMTO          ;* GET ADDRESS RANGE (L 7957)
+    1602/    7EA8 : BD 77 17            	jsr	CRLF            ;* (L 7717)
+    1603/    7EAB : FE 77 05            	ldx	BEGA            ;* GET STARTING ADDRESS (X 7705)
+    1604/    7EAE :                     L7EB1:
+    1605/    7EAE : A6 00               AOINST1:ldaa	$00,x           ;* GET NEXT CHARACTER
+    1606/    7EB0 : BD 77 69            	jsr	OUTEEE          ;* OUTPUT IT (L 7769)
+    1607/    7EB3 : BC 77 07            	cpx	ENDA            ;* SEE IF DONE (USRSTK - X 7707)
+    1608/    7EB6 : 27 F6               	beq	AOINST1         ;* YES (L 7EBE)
+    1609/    7EB8 : 08                  	inx
+    1610/    7EB9 : 20 00               	bra	AOEXIT          ;* REPEAT IF NOT (L 7EB1)
+    1611/    7EBB :                     L7EBE:
+    1612/    7EBB : 39                  AOEXIT: rts                     ;* WHEN DONE
+    1613/    7EBC :                     ;
+    1614/    7EBC : (MACRO)             L7EBF:  fcc     "OLD ADDR:", $04
+    1615/    7EC6 : (MACRO)             L7EC9:  fcc     "NEW ADDR:", $04
+    1616/    7ED0 :                     L7ED5:
+    1617/    7ED0 : CE 7E BF            MMINST: ldx	#$7EBF
+    1618/    7ED3 : BD 77 24            	jsr	PDATA           ; (L 7724)
+    1619/    7ED6 : BD 79 54            	jsr	FROMTO          ; (L 7957)
+    1620/    7ED9 : BD 77 17            	jsr	CRLF            ; (L 7717)
+    1621/    7EDC : CE 7E C9            	ldx	#$7EC9
+    1622/    7EDF : BD 77 24            	jsr	L7724
+    1623/    7EE2 : BD 76 8A            	jsr	L768A
+    1624/    7EE5 : FF 77 0D            	stx	X770D
+    1625/    7EE8 : FE 77 05            	ldx	X7705
+    1626/    7EEB : FF 77 0B            	stx	X770B
+    1627/    7EEE : BC 77 0D            	cpx	X770D
+    1628/    7EF1 : 25 1C               	bcs	L7F14
+    1629/    7EF3 : 26 01               	bne	L7EFB
+    1630/    7EF5 :                     L7EFA:
+    1631/    7EF5 : 39                  	rts
+    1632/    7EF6 :                     ;
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 37 - 12/12/2022 15:11:20
+
+
+    1633/    7EF6 :                     L7EFB:
+    1634/    7EF6 : FE 77 0B            	ldx	X770B
+    1635/    7EF9 : BC 77 07            	cpx	USRSTK          ; X7707
+    1636/    7EFC : 22 F7               	bhi	L7EFA
+    1637/    7EFE : A6 00               	ldaa	$00,x
+    1638/    7F00 :                     L7F05:
+    1639/    7F00 : 08                  	inx
+    1640/    7F01 : FF 77 0B            	stx	X770B
+    1641/    7F04 : FE 77 0D            	ldx	X770D
+    1642/    7F07 : A7 00               	staa	$00,x
+    1643/    7F09 : 08                  	inx
+    1644/    7F0A :                     L7F0F:
+    1645/    7F0A : FF 77 0D            	stx	X770D
+    1646/    7F0D : 20 E7               	bra	L7EFB
+    1647/    7F0F :                     ;
+    1648/    7F0F :                     L7F14:
+    1649/    7F0F : FC 77 07            	ldd	USRSTK          ; X7707
+    1650/    7F12 : B3 77 05            	subd	X7705
+    1651/    7F15 : F3 77 0D            	addd	X770D
+    1652/    7F18 : FD 77 0D            	std	X770D
+    1653/    7F1B : FE 77 07            	ldx	USRSTK          ; X7707
+    1654/    7F1E : FF 77 0B            	stx	X770B
+    1655/    7F21 :                     L7F26:
+    1656/    7F21 : FE 77 0B            	ldx	X770B
+    1657/    7F24 : BC 77 05            	cpx	X7705
+    1658/    7F27 : 25 CC               	bcs	L7EFA
+    1659/    7F29 : A6 00               	ldaa	$00,x
+    1660/    7F2B : 09                  	dex
+    1661/    7F2C : FF 77 0B            	stx	X770B
+    1662/    7F2F : FE 77 0D            	ldx	X770D
+    1663/    7F32 : A7 00               	staa	$00,x
+    1664/    7F34 : 09                  	dex
+    1665/    7F35 : FF 77 0D            	stx	X770D
+    1666/    7F38 : FE 77 05            	ldx	X7705
+    1667/    7F3B : 26 E4               	bne	L7F26
+    1668/    7F3D : 09                  	dex
+    1669/    7F3E : BC 77 0B            	cpx	X770B
+    1670/    7F41 : 26 DE               	bne	L7F26
+    1671/    7F43 : 20 B0               	bra	L7EFA
+    1672/    7F45 :                     ;
+    1673/    7F45 :                             ;; * 'HE' - HELP COMMAND
+    1674/    7F45 : BD 77 17            HEINST: jsr	CRLF            ;* (L 7717)
+    1675/    7F48 : CE 75 DC            	ldx	#COMTAB         ;* ($ 75DC)
+    1676/    7F4B :                     L7F50:
+    1677/    7F4B : C6 0A               HLOOP1: ldab	#$0A            ;* Set the counter (Items/line)
+    1678/    7F4D :                     L7F52:
+    1679/    7F4D : A6 00               HLOOP2: ldaa	$00,x           ;* Get the command (L1)
+    1680/    7F4F : BD 77 69            	jsr	OUTEEE          ;* (L 7769)
+    1681/    7F52 : A6 01               	ldaa	$01,x           ;* (L2)
+    1682/    7F54 : BD 77 69            	jsr	OUTEEE          ;* (L 7769)
+    1683/    7F57 : BD 76 DA            	jsr	OUTS            ;* (L 76DA)
+    1684/    7F5A :                             ;;
+    1685/    7F5A :                             ;; 'xx'   <- 2 letter command
+    1686/    7F5A :                             ;; XXINST <- 2 Byte address
+    1687/    7F5A :                             ;; 
+    1688/    7F5A : 08                  	inx                     ;* Past the cmd
+    1689/    7F5B : 08                  	inx                     ;*
+    1690/    7F5C : 08                  	inx                     ;* Past the address
+    1691/    7F5D : 08                  	inx                     ;*
+    1692/    7F5E : 8C 76 44            	cpx	#TABEND         ;* DONE? ($ 7644)
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 38 - 12/12/2022 15:11:20
+
+
+    1693/    7F61 : 26 01               	bne	HLOOP3          ;* NO (L 7F69)
+    1694/    7F63 : 39                  	rts                     ;* YES
+    1695/    7F64 :                     ;
+    1696/    7F64 :                     L7F69:
+    1697/    7F64 : 5A                  HLOOP3: decb
+    1698/    7F65 : 26 E6               	bne	HLOOP2          ;* (L 7F52)
+    1699/    7F67 : BD 77 17            	jsr	CRLF            ;* (L 7717)
+    1700/    7F6A : 20 DF               	bra	HLOOP1          ;* (L 7F50)
+    1701/    7F6C :                     ;
+    1702/    7F6C :                             ;;
+    1703/    7F6C :                             ;; @FIXME: This needs a proper clean up with rmb
+    1704/    7F6C :                             ;; 
+    1705/    7F6C : (MACRO)             L7F71:  fcc	$00, $00, $00, $00
+    1706/    7F70 : =$7F70              L7F75   equ     *
+    1707/    7FA0 :                             org     $7FA0
+    1708/    7FA0 : =$7FA0              STACK   equ     *
+    1709/    7FA0 : =$7FFC              X7FFC   equ     $7FFC
+    1710/    7FA0 : =$7FFE              X7FFE   equ     $7FFE
+    1711/    7FFF :                             org     $7FFF
+    1712/    7FFF : =$7FFF              USTACK  equ     *
+    1713/    7FFF : =$7FFF              STACK2  equ     *
+    1714/    7FFF :                     
+    1715/    7FFF :                     ; ------------------------------------------------------------------------------
+    1716/    7FFF :                     ;* MEMORY MAP
+    1717/    7FFF :                     ;* Hex Address
+    1718/    7FFF :                     ;* 
+    1719/    7FFF :                     ;*        0000 Data Direction Register for keyboard lines
+    1720/    7FFF :                     ;*        0001 Data Direction Register for miscellaneous I/O
+    1721/    7FFF :                     ;*        0002 Keyboard Output Lines
+    1722/    7FFF :                     ;*        0003 Miscellaneous I/O Data Register
+    1723/    7FFF :                     ;*        0004 Not Used (not available?)
+    1724/    7FFF :                     ;*        0005 Not Used
+    1725/    7FFF :                     ;*        0006 Not Used
+    1726/    7FFF :                     ;*        0007 Not Used
+    1727/    7FFF :                     ;*        0008 Timer Control and Status Register
+    1728/    7FFF :                     ;*        0009 Counter (high byte)
+    1729/    7FFF :                     ;*        000A Counter (low byte)
+    1730/    7FFF :                     ;*        000B Output Compare Register (high byte)
+    1731/    7FFF :                     ;*        000C Output Compare Register (low byte)
+    1732/    7FFF :                     ;*        000D Input Capture Register (high byte)
+    1733/    7FFF :                     ;*        000E Input Capture Register (low byte)
+    1734/    7FFF :                     ;*        000F Port 3 Control and Status Register
+    1735/    7FFF :                     ;*        0010 Not Used
+    1736/    7FFF :                     ;*        0011 Not Used
+    1737/    7FFF :                     ;*        0012 Not Used
+    1738/    7FFF :                     ;*        0013 Not Used
+    1739/    7FFF :                     ;*        0014 RAM Control Register
+    1740/    7FFF :                     ;* 0015 - 007F Not Used
+    1741/    7FFF :                     ;* 0080 - 00FF RAM internal to the 6803
+    1742/    7FFF :                     ;* 0100 - 3FFF Not Used
+    1743/    7FFF :                     ;*
+    1744/    7FFF :                     ;* 4000 - 8FFF 16K RAM (4K - 20K used)
+    1745/    7FFF :                     ;* 4000 - 41FF - Video RAM
+    1746/    7FFF :                     ;* 4200 - 4334 - OS Variables
+    1747/    7FFF :                     ;* 4335 - End of RAM - Program RAM
+    1748/    7FFF :                     ;* 9000 - BFFF 16K I/O Slot (Keyboard and VDG control)
+    1749/    7FFF :                     ;* C000 - FFFF 16K ROM (only 8K used)
+    1750/    7FFF :                     ;*
+    1751/    7FFF :                     ;* MC10 default memory layout
+    1752/    7FFF :                     ;* 0000 - 3FFF 1st 16K
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 39 - 12/12/2022 15:11:20
+
+
+    1753/    7FFF :                     ;* 4000 - 7FFF 2nd 16K
+    1754/    7FFF :                     ;* 8000 - BFFF 3rd 16K
+    1755/    7FFF :                     ;* C000 - FFFF 4th 16K (BASIC 8K ROM mirrored)
+    1756/    7FFF :                     ;*
+    1757/    7FFF :                     ;* MC10 with MCX-128
+    1758/    7FFF :                     ;*
+    1759/    7FFF :                     ;*
+    1760/    7FFF :                     ;* Humbug+
+    1761/    7FFF :                     ;* $4350 - Top of RAM ($7500 - base of Humbug+)
+    1762/    7FFF :                     ; ------------------------------------------------------------------------------
+    1763/    7FFF :                     
+    1764/    7FFF :                     ; =[ Fini ]==================================================================
+    1765/    7FFF :                     
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 40 - 12/12/2022 15:11:20
+
+
+  symbol table (* = unused):
+  ------------------------
+
+ ADDRSTR :                     7933 C |  ADINST :                      7C82 C |
+ AIINST :                      7E74 C |  AOEXIT :                      7EBB C |
+ AOINST :                      7EA5 C |  AOINST1 :                     7EAE C |
+*ARCHITECTURE :                                        x86_64-unknown-linux - |
+*ARYEND :                        99 - | *ARYMOD :                        86 - |
+*ARYTAB :                        97 - | *ASCFLG :                      4268 - |
+*ASCST :                       78C3 C |  ATINST :                      7816 C |
+ BADDR :                       768A C |  BADDRH :                      7709 C |
+ BADDRL :                      770A C |  BAINST :                      77DA C |
+*BASIC :                       75EC C | *BASST :                       7835 C |
+ BEEXIT :                      7A5C C |  BEGA :                        7705 C |
+ BERASE :                      7A49 C | *BIGENDIAN :                      0 - |
+*BINST :                       7845 C | *BINVAL :                        A5 - |
+ BKEXIT :                      7A8C C |  BKLOOP :                      7A82 C |
+ BKNUM :                       7A67 C |  BKNUM1 :                      7A8A C |
+ BKTAB :                       76EF C | *BLKIN :                       FFE2 - |
+*BLKLEN :                      4276 - | *BLKOUT :                      FFE4 - |
+*BLKPTR :                      4278 - | *BLKSUM :                      427A - |
+*BLKTYP :                      4275 - | *BLNKTM :                      422B - |
+ BPINST :                      7A8D C |  BPR1 :                        7A95 C |
+ BPR2 :                        7A9B C |  BPR3 :                        7AB0 C |
+ BPR4 :                        7ABC C | *BRANCHEXT :                      0 - |
+ BRINST :                      7A20 C | *BRKLIN :                        A3 - |
+*BRKSTA :                      423B - |  BRTMP :                       76EC C |
+*BS :                             8 - | *BS_ERR :                        10 - |
+ BYTE :                        7698 C |  BYTE1 :                       769A C |
+*CAPLOK :                      421C - |  CASBEG :                      426F - |
+ CASEND :                      4271 - | *CASESENSITIVE :                  0 - |
+*CASPOL :                      427E - | *CASTIM :                      427D - |
+*CBITCT :                      427C - | *CCTERR :                      427B - |
+*CFEXEC :                      426A - | *CFNLEN :                      4256 - |
+ CFNSTR :                      4257 - |  CFTYPE :                      4267 - |
+ CHANGE0 :                     7646 C |  CHANGE1 :                     7658 C |
+ CHANGE2 :                     766D C | *CHARAC :                        80 - |
+*CHRGET :                        EB - | *CHRGOT :                        F3 - |
+*CHROUT :                      FFDE - | *CHRPTR :                        F4 - |
+*CLDFLG :                      426E - | *CLDRSZ :                      422F - |
+ CLS :                            C - | *CMAXTR :                      422D - |
+ CNSLIN :                      F865 - | *CN_ERR :                        20 - |
+*COEFCT :                        CF - |  COINST :                      7B64 C |
+*COLDST :                      7533 C |  COMTAB :                      75DC C |
+*CONSTPI :        3.141592653589793 - | *CPURES :                      F72E - |
+ CR :                             A - |  CRLF :                        7717 C |
+ CRLFST :                      771F C | *CRLFV :                       768A C |
+*CRSCLR :                      4282 - | *CRSPTR :                      4280 - |
+ CSINST :                      7E54 C |  CTRLH :                          8 - |
+*CTRLKY :                      423A - | *CTRLQ :                         11 - |
+ CTRLS :                         13 - | *CURLIN :                        E2 - |
+ CURPOS :                      4280 - |  CVTHEX :                      76BA C |
+*CYCPAR :                      422C - | *D0_ERR :                        14 - |
+*DATE :                  12/12/2022 - | *DATLIN :                        AB - |
+*DATPTR :                        AD - | *DATST :                       783D C |
+*DATTMP :                        AF - | *DD_ERR :                        12 - |
+*DEBDLY :                      421D - | *DECFLG :                        C0 - |
+ DEINST :                      79B1 C | *DESPTR :                        C7 - |
+*DEVCFW :                        E4 - | *DEVLCF :                        E5 - |
+*DEVNUM :                        E8 - | *DEVPOS :                        E6 - |
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 41 - 12/12/2022 15:11:20
+
+
+*DEVWID :                        E7 - | *DIGIT :                       7976 C |
+*DIMFLG :                        83 - | *DSTEND :                        BB - |
+ ENDA :                        7707 C | *ENDCHR :                        81 - |
+*ENDFLG :                      4283 - | *EOFLAG :                        E9 - |
+ EOT :                            4 - |  EXECJP :                      421F - |
+ EXINST :                      79A6 C | *EXPSGN :                        C2 - |
+*FALSE :                          0 - | *FC_ERR :                         8 - |
+ FIINST :                      7DB2 C |  FILL :                        7564 C |
+ FMINST :                      7E3B C | *FM_ERR :                        24 - |
+*FP0EXP :                        C9 - | *FP0SGN :                        CE - |
+*FP1EXP :                        D6 - | *FP1SGN :                        DB - |
+*FP3EXP :                        BA - | *FP5EXP :                        C4 - |
+*FPA0 :                          CA - | *FPA1 :                          D7 - |
+*FPA2 :                          8D - | *FPSBYT :                        DD - |
+*FRACNT :                        BF - | *FRESPC :                        9F - |
+*FRETOP :                        9B - |  FROMSTR :                     799A C |
+ FROMTO :                      7954 C | *FULLPMMU :                       1 - |
+*GAPFLG :                      4269 - |  GEEXIT :                      7760 C |
+*GETARG :                      FFEC - | *GETBLK :                      FEB9 - |
+ GETCMD :                      7744 C | *GIVABF :                      ECE3 - |
+ GOTCS :                       7740 C | *GOTONE :                      7976 C |
+*HAS64 :                          1 - | *HASDSP :                         0 - |
+*HASFPU :                         0 - | *HASPMMU :                        0 - |
+ HBUGSTR :                     757B C |  HDINST :                      7C82 C |
+ HEINST :                      7F45 C | *HISTRD :                        C5 - |
+ HLOOP1 :                      7F4B C |  HLOOP2 :                      7F4D C |
+ HLOOP3 :                      7F64 C | *ICFVEC :                      4209 - |
+*ID_ERR :                        16 - | *IKYCOD :                      427F - |
+ INCH7 :                       7763 C |  INCH8 :                       77AE C |
+ INEEE :                       7733 C |  INEEEV :                      76B5 C |
+ INEXIT :                      76CC C | *INEXTMODE :                      0 - |
+ INHEX :                       76B8 C | *INLWORDMODE :                    0 - |
+*INMAXMODE :                      0 - | *INPFLG :                        87 - |
+ INRPT :                       7735 C | *INSRCMODE :                      0 - |
+*INSUPMODE :                      0 - | *INTCNV :                      EBC7 - |
+*IO_ERR :                        22 - | *IRETRN :                      FFEA - |
+*IRQVEC :                      420C - |  JMPINST :                       7E - |
+ JUINST :                      76DE C | *KEYBUF :                      4231 - |
+*KEYCOL :                      4239 - |  KEYIN :                       F883 - |
+*L4504 :                       7604 C | *L752D :                       752D C |
+*L7530 :                       7530 C | *L7564 :                       7564 C |
+*L756A :                       756A C |  L7594 :                       7594 C |
+*L75AB :                       75AB C |  L75B9 :                       75B9 C |
+ L75D5 :                       75D5 C | *L75DC :                       75DC C |
+*L7658 :                       7658 C | *L766D :                       766D C |
+*L7687 :                       7687 C |  L768A :                       768A C |
+ L7698 :                       7698 C | *L769A :                       769A C |
+ L76A4 :                       76A4 C | *L76A8 :                       76A8 C |
+*L76B5 :                       76B5 C | *L76B8 :                       76B8 C |
+*L76E8 :                       76E8 C |  L7717 :                       7717 C |
+*L771F :                       771F C |  L7724 :                       7724 C |
+*L7731 :                       7731 C | *L7733 :                       7733 C |
+*L7735 :                       7735 C | *L7740 :                       7740 C |
+*L7744 :                       7744 C | *L774E :                       774E C |
+*L775B :                       775B C |  L7760 :                       7760 C |
+*L7763 :                       7763 C |  L7769 :                       7769 C |
+*L777A :                       777A C |  L778C :                       778C C |
+ L77A1 :                       77A1 C |  L77AB :                       77AB C |
+ L77AE :                       77AE C |  L77BC :                       77BC C |
+ L77C7 :                       77C7 C |  L77CD :                       77CD C |
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 42 - 12/12/2022 15:11:20
+
+
+*L77D3 :                       77D3 C | *L77DA :                       77DA C |
+ L77E9 :                       77E9 C |  L77F3 :                       77F3 C |
+ L780F :                       780E C | *L7817 :                       7816 C |
+ L782D :                       782C C | *L7836 :                       7835 C |
+*L783E :                       783D C | *L7846 :                       7845 C |
+ L784E :                       784B C | *L7852 :                       784F C |
+*L786C :                       7869 C |  L788A :                       7887 C |
+ L78A7 :                       78A4 C |  L78C3 :                       78C0 C |
+*L78C6 :                       78C3 C | *L78CC :                       78C9 C |
+ L78DB :                       78D8 C |  L78E6 :                       78E3 C |
+ L78F5 :                       78F2 C |  L7909 :                       7906 C |
+ L790B :                       7908 C |  L7911 :                       790E C |
+*L792D :                       792A C | *L7936 :                       7933 C |
+*L793E :                       793B C | *L7949 :                       7946 C |
+*L7950 :                       794D C | *L7957 :                       7954 C |
+*L7962 :                       795F C |  L7967 :                       7964 C |
+ L7979 :                       7976 C |  L799A :                       7997 C |
+*L799D :                       799A C | *L79A4 :                       79A1 C |
+*L79A9 :                       79A6 C | *L79B4 :                       79B1 C |
+ L79BD :                       79BA C |  L79CE :                       79CB C |
+*L79E5 :                       79E2 C |  L7A0B :                       7A08 C |
+ L7A0C :                       7A09 C |  L7A0D :                       7A0A C |
+ L7A1C :                       7A19 C |  L7A1F :                       7A1C C |
+ L7A22 :                       7A1F C | *L7A23 :                       7A20 C |
+*L7A4C :                       7A49 C | *L7A5F :                       7A5C C |
+*L7A60 :                       7A5D C | *L7A6A :                       7A67 C |
+*L7A85 :                       7A82 C | *L7A8D :                       7A8A C |
+*L7A8F :                       7A8C C | *L7A90 :                       7A8D C |
+*L7A98 :                       7A95 C | *L7A9E :                       7A9B C |
+*L7AB3 :                       7AB0 C | *L7ABF :                       7ABC C |
+*L7AC4 :                       7AC1 C |  L7ACE :                       7ACB C |
+*L7AEC :                       7AE9 C | *L7B1B :                       7B18 C |
+*L7B36 :                       7B33 C |  L7B44 :                       7B41 C |
+*L7B48 :                       7B45 C | *L7B4C :                       7B49 C |
+*L7B4E :                       7B4B C |  L7B51 :                       7B4E C |
+*L7B5B :                       7B58 C | *L7B61 :                       7B5E C |
+*L7B65 :                       7B62 C | *L7B67 :                       7B64 C |
+*L7B6B :                       7B68 C | *L7B6C :                       7B69 C |
+*L7B81 :                       7B7E C | *L7B99 :                       7B96 C |
+ L7BC2 :                       7BBF C |  L7BC9 :                       7BC6 C |
+ L7BD5 :                       7BD2 C |  L7BD8 :                       7BD5 C |
+ L7BF0 :                       7BED C | *L7C01 :                       7BFE C |
+ L7C05 :                       7C02 C |  L7C0A :                       7C07 C |
+ L7C31 :                       7C2E C |  L7C34 :                       7C31 C |
+ L7C3D :                       7C3A C |  L7C41 :                       7C3E C |
+ L7C43 :                       7C40 C |  L7C55 :                       7C52 C |
+ L7C5B :                       7C58 C |  L7C62 :                       7C5F C |
+ L7C6D :                       7C6A C |  L7C7E :                       7C7B C |
+*L7C85 :                       7C82 C |  L7C96 :                       7C93 C |
+ L7CA7 :                       7CA4 C |  L7CB8 :                       7CB5 C |
+ L7CCE :                       7CCB C |  L7CDC :                       7CD9 C |
+ L7CE5 :                       7CE2 C |  L7CF4 :                       7CF1 C |
+ L7CF6 :                       7CF3 C |  L7D22 :                       7D1F C |
+ L7D4A :                       7D47 C |  L7D5F :                       7D5C C |
+*L7D60 :                       7D5D C | *L7D69 :                       7D66 C |
+ L7D6F :                       7D6C C |  L7D7C :                       7D79 C |
+ L7D89 :                       7D86 C |  L7D9F :                       7D9C C |
+ L7DAC :                       7DA9 C | *L7DB2 :                       7DAF C |
+*L7DB5 :                       7DB2 C |  L7DDA :                       7DD7 C |
+ L7DEE :                       7DEB C |  L7E0C :                       7E09 C |
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 43 - 12/12/2022 15:11:20
+
+
+ L7E1F :                       7E1C C |  L7E28 :                       7E25 C |
+ L7E30 :                       7E2D C | *L7E33 :                       7E30 C |
+*L7E3E :                       7E3B C |  L7E4E :                       7E4B C |
+*L7E57 :                       7E54 C |  L7E5F :                       7E5C C |
+ L7E6B :                       7E68 C |  L7E74 :                       7E71 C |
+*L7E77 :                       7E74 C |  L7E87 :                       7E84 C |
+ L7E99 :                       7E96 C | *L7EA1 :                       7E9E C |
+*L7EA8 :                       7EA5 C | *L7EB1 :                       7EAE C |
+*L7EBE :                       7EBB C | *L7EBF :                       7EBC C |
+*L7EC9 :                       7EC6 C | *L7ED5 :                       7ED0 C |
+ L7EFA :                       7EF5 C |  L7EFB :                       7EF6 C |
+*L7F05 :                       7F00 C | *L7F0F :                       7F0A C |
+ L7F14 :                       7F0F C |  L7F26 :                       7F21 C |
+*L7F50 :                       7F4B C | *L7F52 :                       7F4D C |
+*L7F69 :                       7F64 C | *L7F71 :                       7F6C C |
+*L7F75 :                       7F70 - | *LBUFMX :                        80 - |
+*LDROUT :                      FCB7 - |  LDSIZE :                      426C - |
+ LF :                             D - |  LFC5D :                       FC5D - |
+ LFC8E :                       FC8E - |  LFEB0 :                       FEB0 - |
+ LFEB6 :                       FEB6 - | *LFF4E :                       FF4E - |
+*LINBUF :                      42B2 - | *LINUMB :                      42B0 - |
+*LISTON :                         1 - | *LNKLSB :                      42AF - |
+ LPTBTD :                      4223 - | *LPTCFW :                      4227 - |
+*LPTLCF :                      4228 - | *LPTLND :                      4225 - |
+*LPTPOS :                      422A - | *LPTWID :                      4229 - |
+*LS_ERR :                        1C - | *MACEXP :                         0 - |
+ MAIN :                        7500 C | *MARK :                          55 - |
+ MCINST :                      7CFB C |  MEINST :                      7644 C |
+*MEMSIZ :                        A1 - |  MMINST :                      7ED0 C |
+*MOMCPU :                      6301 - | *MOMCPUNAME :                  6301 - |
+ MONRST :                      7530 C | *MOVSTR :                      4334 - |
+ MTINST :                      7D66 C | *MYSTRY :                      4274 - |
+*NAMBLK :                      425F - | *NESTMAX :                      100 - |
+*NF_ERR :                         0 - | *NL :                             D - |
+*NMIVEC :                      4212 - | *NMSTRS :                         3 - |
+*NOLOAD :                      4273 - |  NOTEST :                      777A C |
+ NOTO :                        774E C |  NOTP :                        775B C |
+ NUL :                            0 - |  NUMSTR :                      7A5D C |
+ NXTCHR :                      7725 C |  NXTCMD :                      7594 C |
+ NXTCMDV :                     7687 C |  NXTHEX :                      7997 C |
+*OCFVEC :                      4206 - | *OD_ERR :                         6 - |
+*OLDPTR :                        A7 - | *OM_ERR :                         C - |
+*OPSAVE :                        B7 - | *OS_ERR :                        1A - |
+ OUEXIT :                      76B2 C |  OUT2H :                       76CD C |
+ OUT2HS :                      76D8 C |  OUT4HS :                      76D6 C |
+ OUTCH :                       7717 C |  OUTEEE :                      7769 C |
+*OUTHL :                       76A4 C |  OUTHR :                       76A8 C |
+*OUTPTR :                        DE - |  OUTS :                        76DA C |
+*OUTSER :                      F9D0 - | *OV_ERR :                         A - |
+*P1DATA :                         2 - | *P1DDR :                          0 - |
+*P2DATA :                         3 - | *P2DDR :                          1 - |
+*PACKING :                        0 - | *PADDING :                        0 - |
+*PAUSE :                         13 - |  PDATA :                       7724 C |
+ PDEXIT :                      7731 C | *PIXMSK :                      423C - |
+*POLCAT :                      FFDC - | *PRGRAM :                      4335 - |
+*PROMPT :                        3E - |  PRTSER :                      F9D0 - |
+*PUTBLK :                      FCC0 - |  PUTCHR :                      F9C6 - |
+*RAMCR :                         14 - |  RCINST :                      7B33 C |
+*RDCLDR :                      FFE0 - |  REINST :                      7AD3 C |
+*RELAXED :                        0 - | *RELFLG :                        88 - |
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 44 - 12/12/2022 15:11:20
+
+
+ RELOOP :                      7AE9 C | *RELOPS :                        B9 - |
+ REMSG :                       7B18 C |  RESET :                       F72E - |
+*RESSGN :                        DC - |  RESTART :                     7533 C |
+*RG_ERR :                         4 - | *RNDVAL :                      4252 - |
+*RSTFLG :                        EA - | *RVEC1 :                       4285 - |
+*RVEC10 :                      42A0 - | *RVEC11 :                      42A3 - |
+*RVEC12 :                      42A6 - | *RVEC13 :                      42A9 - |
+*RVEC14 :                      42AC - | *RVEC2 :                       4288 - |
+*RVEC3 :                       428B - | *RVEC4 :                       428E - |
+*RVEC5 :                       4291 - | *RVEC6 :                       4294 - |
+*RVEC7 :                       4297 - | *RVEC8 :                       429A - |
+*RVEC9 :                       429D - | *RVSEED :                      4218 - |
+ SAINST :                      78C9 C | *SCIEXP :                        C1 - |
+*SCIVEC :                      4200 - | *SDSPTR :                      423D - |
+*SERCSR :                        11 - | *SERIN :                         12 - |
+*SERMOD :                        10 - | *SEROUT :                        13 - |
+*SFTSGN :                        D5 - | *SKP1 :                          21 - |
+*SKP1LDA :                       86 - | *SKP1LDB :                       C6 - |
+*SKP2 :                          8C - | *SNDGEN :                      FFAB - |
+*SNDOUT :                      FFE6 - | *SN_ERR :                         2 - |
+*SOH :                            1 - |  SP :                          770F C |
+ SPACE :                         20 - | *SRCEND :                        BD - |
+ SSINST :                      7B96 C |  STACK :                       7FA0 - |
+*STACK2 :                      7FFF - |  STINST :                      7B7E C |
+*STKBUF :                        3A - | *STKSAV :                        91 - |
+*STRBUF :                      4335 - | *STRDES :                        D0 - |
+*STRSTK :                      4241 - | *STRTAB :                        9D - |
+*ST_ERR :                        1E - |  SWIADDR :                     4210 - |
+ SWIHDLR :                     7AC1 C |  SWIINST :                       3F - |
+ SWIVEC :                      420F - | *SYNC :                          3C - |
+ SYNLDR :                      FF4E - |  TABEND :                      7644 - |
+*TCSR :                           8 - | *TICR :                           D - |
+*TIME :                    15:11:20 - | *TIMER :                          9 - |
+*TINPTR :                        A9 - | *TMPFLG :                        85 - |
+*TMPLOC :                        82 - |  TMPSTR :                      7711 C |
+*TMPTR1 :                        89 - | *TMPTR2 :                        8B - |
+*TM_ERR :                        18 - | *TOCR :                           B - |
+*TOFVEC :                      4203 - | *TOPRAM :                      4250 - |
+*TOPSTR :                      423F - |  TOSTR :                       79A1 C |
+*TRNPAR :                      422E - | *TRUE :                           1 - |
+*TXTTAB :                        93 - | *UL_ERR :                         E - |
+*UNCRFL :                      4284 - |  USRSTK :                      7707 C |
+*USRVEC :                      4215 - |  USTACK :                      7FFF - |
+*VALTYP :                        84 - | *VARADR :                        B3 - |
+*VARDES :                        B5 - | *VARNAM :                        B1 - |
+*VARTAB :                        95 - | *VERSION :                     142F - |
+*VIDRAM :                      4000 - |  WARMST :                      756A C |
+*WRTLDR :                      FFE8 - | *WSTVEC :                      4221 - |
+ X76E9 :                       76E9 C |  X76EB :                       76EB C |
+ X76EC :                       76EC C |  X76ED :                       76ED C |
+ X76EE :                       76EE C |  X76FB :                       76FB C |
+ X76FC :                       76FC C |  X76FD :                       76FD C |
+ X76FF :                       76FF C |  X7701 :                       7701 C |
+ X7702 :                       7702 C |  X7704 :                       7704 C |
+ X7705 :                       7705 C |  X7706 :                       7706 C |
+*X7707 :                       7707 C |  X7708 :                       7708 C |
+ X7709 :                       7709 C | *X770A :                       770A C |
+ X770B :                       770B C |  X770C :                       770C C |
+ X770D :                       770D C |  X770F :                       770F C |
+ X7711 :                       7711 C |  X7712 :                       7712 C |
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 45 - 12/12/2022 15:11:20
+
+
+ X7FFC :                       7FFC - |  X7FFE :                       7FFE - |
+
+    595 symbols
+    344 unused symbols
+
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 46 - 12/12/2022 15:11:20
+
+
+  defined macros:
+  ---------------
+
+DB                                    | DD                                   
+DS                                    | DW                                   
+FCB                                   | FCC                                  
+FCD                                   | FCW                                  
+FDB                                   | LIST                                 
+NOLIST                                | NOOPT                                
+OPT                                   | PAGE                                 
+RMB                                   |
+
+     15 macros
+
+ AS V1.42 Beta [Bld 119] - source file hb7500c.asm - page 47 - 12/12/2022 15:11:20
+
+
+  codepages:
+  ----------
+
+STANDARD (0 changed characters)
+
+
+0.02 seconds assembly time
+
+   2292 lines source file
+   2521 lines incl. macro expansions
+      2 passes
+      0 errors
+      0 warnings
