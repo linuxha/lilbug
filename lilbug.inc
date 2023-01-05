@@ -38,8 +38,8 @@ PSHD            macro
                 PSHA	; Pus the last thing on the stack
                 endm
 
-    warning "Just a test"
-    message "And this is just a message"
+    ;warning "Just a test"
+    ;message "And this is just a message"
 
 ; This doesn't work
 ;       IFNDEF   LDD
@@ -49,18 +49,19 @@ PSHD            macro
 
 ;** FOR VDG, SET VDG = 0,
 ;** FOR NON-VDG, SET VDG = 1
-VDG     EQU  1
+VDG     EQU  0
 
-;* FOR ON-CHIP IO, SET CHIPIO = 0
-;* FOR ACIA TEST,  SET CHIPIO = 1
-CHIPIO  EQU  0
+;* FOR ON-CHIP IO, SET CHIPIO = 1
+;* FOR ACIA TEST,  SET CHIPIO = 0
+CHIPIO  EQU  1
 
 ;
         TITLE  "6801 DEBUG MONITOR"
         NAM    LILBUG
 ;
 ;* COMPILED APR 78 BY DIAMOND LIL FOR M6801
-
+;* Modified Jan 23 by Neil Cherry
+	include "ascii.inc"
 ;*************** COMMANDS ****************
 ;* L   LOAD A PROGRAM FROM TAPE
 ;* L <OFFSET>  LOAD FROM TAPE WITH AN OFFSET
@@ -164,7 +165,7 @@ OPCODE  RMB  NUMBP
 BRKFLG  RMB  1                  ;* BRKPNT IN
 NTRACE  RMB  2                  ;* TRACE N INSTR
 EXONE   RMB  1                  ;* XQT 1 INSTR FLAG
-OUTSW   RMB  1                  ;* ECHO FLAG
+OUTSW   RMB  1                  ;* ECHO FLAG (1 means no echo, 0 means echo)
 CALLF   RMB  1                  ;* FLAG FOR C CMD
 PTM     RMB  2                  ;* PTM ADDRESS
 FCTPTR  RMB  2                  ;* POINTER TO FUNCTION TABLE
