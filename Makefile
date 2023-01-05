@@ -32,4 +32,5 @@ clean:
 burn: lilbug.s19
 	srec_cat '(' -generate 0xE000 0xF800 --constant 0xFF ')' lilbug.s19 -o lilbug.srec
 	srec_cat  lilbug.srec -offset -0xE000 -o lilbug.bin -binary
-	echo minipro -p 28C64A -w lilbug.bin -y
+	@# We don't need sudo as we've fixed the device permission in the udev files
+	minipro -p 28C64A -w lilbug.bin -y
