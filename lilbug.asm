@@ -19,7 +19,40 @@
 ;*
 	include "lilbug.inc"
 
-        ORG  $F800
+    IF VDG
+        FATAL "Stop, there is no VDG here"
+        ORG $B00
+    ELSE
+        ORG $F800
+    ENDIF
+
+    IF VDG	
+	IF MomPass=1
+	        MESSAGE "###"
+	        MESSAGE "### Using the VDG"
+	        MESSAGE "###"
+	ENDIF
+    ELSE	
+	IF MomPass=1
+	        MESSAGE "###"
+	        MESSAGE "### Not using the VDG"
+	        MESSAGE "###"
+	ENDIF
+    ENDIF
+
+    IF CHIPIO
+	IF MomPass=1
+	        MESSAGE "###"
+	        MESSAGE "### Using the onboard UART"
+	        MESSAGE "###"
+	ENDIF
+    ELSE
+	IF MomPass=1
+	        MESSAGE "###"
+	        MESSAGE "### Using the ACIA"
+	        MESSAGE "###"
+	ENDIF
+    ENDIF
 
 ;* JUMP TABLE TO SUBROUTINES
 EX.NMI  JMP  M.NMI              ; NMI VECTOR FOR PTM
@@ -146,11 +179,15 @@ BS.OFF  EQU  $16             ;* DISABLE TAPE DEVICE
 ;* IGNORES RUBOUT CHAR
 ;* ECHOES OUTPUT IF FLAG CLEAR
 ;* SAVE, RESTORE REG B
-INCH1   PSHB
+INCH1   PSHB                    
+;*
+;* Wait for input loop (IO jumps to CIDTA) A = input
+;* on no data, C is clear (No Read)
+;*
 INCH15  LDAB #CI.DTA            ;* OFFSET TO CIDTA
 INCH2   BSR  IO                 ;* SCAN IO DEVICE
         BCC  INCH15             ;* LOOP ON NO WAIT INPUT
-        ANDA #$7F               ;* CLEAR PARITY
+        ANDA #$7F               ;* CLEAR PARITY (suggests 7N1)
         BEQ  INCH15             ;* IGNORE NULLS
         CMPA #$7F               ;* RUBOUT?
         BEQ  INCH15             ;
@@ -173,13 +210,22 @@ OUTCH1  PSHB
 ;* READ 1 CHAR FROM INPUT W/ NO WAIT
 ;* RETURN W/ C CLEAR IF NO READ
 ;*     ELSE REG A = INPUT & C IS SET
-CIDTA   LDAA TRCS               ;* GET CONTROL WORD
+CIDTA   EQU  *
+    IF CHIPIO                   ;* CHIPIO 0 if 6803 UART
+        LDAA TRCS               ;* GET CONTROL WORD
         ASLA                    ;* CHK THAT RDRF IS SET
         BCS  CIDTA1             ;* READ DATA IF SET
         ASLA                    ;* LOOK AT ERR BIT
         BCC  CIDTA2             ;* RTN W/C CLR IF NO READ
 ;* IF FRAMING ERR OR OVER RUN-READ
-CIDTA1  LDAA RECEV              ;* READ
+CIDTA1  LDAA  RECEV             ;* READ (Rx reg)
+    ELSE
+	FATAL "No ACIA for CIDTA"
+        LDAA  ACIAS
+        ASRA
+        BCC  CIDTA2
+        LDAA ACIAD              ;* READ DATA
+    ENDIF
 ;* RETURN W/CARRY SET & LDAA BITS SET
         SEC                     ;* FLAG READ-NO WAIT ACOMPLISHD
 CIDTA2  RTS
@@ -192,10 +238,20 @@ CIDTA2  RTS
 ;* PADS CR AND CHAR FOR 120
 ;* PAD 4 NULLS IF PUNCH CR
 OUTC    PSHB
-OUTC1   LDAB TRCS               ;* GET CONTRL WRD
+OUTC1   EQU  *
+    IF CHIPIO
+        LDAB TRCS               ;* GET CONTRL WRD
         BITB #$20               ;* TDRE SET?
         BEQ  OUTC1              ;* WAIT UNTIL IT IS
         STAA TRANS
+    ELSE
+        FATAL "No ACIA for OUTC1"
+        LDAB ACIAS
+        ASRB
+        ASRB
+        BCC  OUTC1
+        STAA ACIAD              ;* OUTPUT
+    ENDIF
         PULB
 CRTN    RTS
 
@@ -226,10 +282,20 @@ CION    EQU  *
     IFDEF DEF9600
         ;* Baud rate to 9600
         ;* Set padding to Zero
+	IF MomPass=1
+	        MESSAGE "###"
+                MESSAGE "### Set to 9600"
+                MESSAGE "###"
+	ENDIF
         LDD  #$0005             ;* SET PADDING FOR 9600
     ELSE
         ;* Baud rate 300
         ;* Set padding to 1 null after CR
+	IF MomPass=1
+	        MESSAGE "###"
+                MESSAGE "### Set to 300"
+                MESSAGE "###"
+	ENDIF
         LDD  #$1007             ;* SET PADDING FOR 300
     ENDIF
 ;*
@@ -289,7 +355,7 @@ IO      PSHX
 ;* HY & HI SET CHRNL FLAG FOR PADDING
 ;* LOW  2 BITS = NUM NULLS AFTER CHAR
 ;* HIGH 6 BITS = NUM NULLS AFTER CR
-;*  SPC
+        SPC
 ;************** HI **************
 ;* SET SPEED FOR 120 CPS
 ;* SET # NULLS TO PAD CHAR
@@ -320,7 +386,6 @@ START   LDS  #STACK             ;* INIT STK PNTR
         LDX  #SERIAL            ;* INIT VECTOR TABLE POINTER
         STX  VECPTR
         LDX  #FCTABL            ;* INIT FUNCTION TABLE PTR
-;*                              ;*
         STX  FCTPTR 		;* Note this can be overridden to point to your own table! :-)
 ;*                              ;*
         LDX  #PTMADR            ;* SET ADR FOR PTM
@@ -328,14 +393,14 @@ START   LDS  #STACK             ;* INIT STK PNTR
         LDS  #STACK-20          ;* RESET INCASE USER DIDN'T
         STS  SPSAVE             ;* INIT USER STACK
         LDS  #STACK             ;* RESET MONITOR STK
-        LDX  #BKADR             ;* ZERO BKADR TO OVFL
+        LDX  #BKADR             ;* ZERO BKADR TO CALLF
 CLRAM   CLR  0,X 
         INX
         CPX  #CALLF+1
         BNE  CLRAM 
-        CLRB                    ;* OFFSET FOR CION
+        CLRB                    ;* OFFSET FOR CION (*CI+0=CION)
         BSR  IO                 ;* TURN ON CONSOLE IN
-        LDAB #CO.ON             ;* OFFSET FOR COON
+        LDAB #CO.ON             ;* OFFSET FOR COON (*CI+6=COON)
         BSR  IO                 ;* TURN ON CONSOLE OUTPUT
         LDX  #LIL               ;* PR LILBUG
         JSR  PDATA              ;* WITH CR/LF
@@ -507,11 +572,11 @@ VALIN   BLE  VALRTN
 VALRTN  RTS
 
 ;*****INPUT - READ ROUTINE
-;* INPUT ENTRY SET B=0, READ A-F AS HEX
+;* INPUT  ENTRY SET B=0, READ A-F AS HEX
 ;* INPUTA ENTRY SET B#0, READ A-F AS ALPHA
-;* X= HEX NUMBER (ALSO IN TEMPA)
-;* A=LAST CHAR READ (NON-HEX)
-;* B= # HEX CHAR READ (TEMP)
+;* X = HEX NUMBER (ALSO IN TEMPA)
+;* A = LAST CHAR READ (NON-HEX)
+;* B = # HEX CHAR READ (TEMP)
 ;* OVFL # 0 IF OVERFLOW FROM LEFT SHIFT
 ;* CC SET FROM LDAB BEFORE RETRN
 ;* CC SET NEG IF ABORT
@@ -545,7 +610,7 @@ INPUTC  LDAB TEMP               ;* SET REG B=# HEX CHAR READ
         RTS
 
 ;*************** INHEX ****************
-;* INPUT 1 HEX CHAR, CONVERT TO HEX
+;* INPUT5 1 HEX CHAR, CONVERT TO HEX
 ;* RETURN HEX IN REG A
 ;* REG B = 0 CONVERT A-F TO HEX
 ;* REG B < 0 LEAVE A-F ALPHA
@@ -974,7 +1039,6 @@ SETCLK  LDAB #$18               ;* SET #CYCLES
 ;* ENTER FROM XQT 1 INSTR - TRACE OR XQT OVER BRKPNT
 ;* MOVE REGS FROM USER STK TO MONITOR STORAGE
 ;* REPLACE BRKPNTS WITH USER CODE
-;* IF NOT TRACING, REPLACE CODE WITH BRKPNTS (3F)
 ;* IF TRACING, PRINT REGISTERS
 ;*             EXECUTE NEXT USER INSTR
 ;* ENTRY FOR ONCHIP CLOCK TRACE
@@ -1053,7 +1117,7 @@ ARMS04  RTI
 ;*    FOR HARDWARE TRACE
 IFPTM   LDX  #VECTR             ;* GET ADR OF VECTORS
         LDAA MODE               ;* EXTERNAL VECTRS?
-        ANDA #$E0               ;* CHK 3 MSB
+        ANDA #$E0               ;* CHK 3 MSB (1110 & 2=010/3=011)
         CMPA #$20               ;* MODE 1?
         BEQ  IFPTM2             ;
         LDX  VECPTR             ;* GET VECTOR TABLE
@@ -1616,5 +1680,5 @@ VECTR   FDB  I.SER
         FDB  STRT
         END  START
 ;/* Local Variables: */
-;/* mode:asm           */
+;/* mode: asm        */
 ;/* End:             */
